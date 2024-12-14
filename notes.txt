@@ -1,0 +1,2 @@
+Notes:
+- ld hl, sp + imm8 (0xf8) needs to check for overflow in setting flags. I have ignored for now

@@ -1,0 +1,220 @@
+use lazy_static::lazy_static;
+use std::collections::HashMap;
+
+#[derive(Debug)]
+pub enum TargetReg {
+    None,
+    R8(u8), // 0: b, 1: c, 2: d, 3: e, 4: h, 5: l, 6: [hl], 7: a
+    R16(u8), // 0: bc, 1: de, 2: hl, 3: sp
+    R16stk(u8), // 0: bc, 1: de, 2: hl, 3: af
+    R16mem(u8), // 0: bc, 1: de, 2: hl+, 3: hl-
+    Cond(u8), // 0: nz, 1: z, 2: nc, 3: c
+    B3(u8),
+    Tgt3(u8),
+    A,
+    C,
+    SP,
+    SPimm8,
+    Imm8,
+    Imm16,
+    Ptr,
+}
+
+pub struct Opcode {
+    pub name: &'static str,
+    pub reg1: TargetReg,
+    pub reg2: TargetReg,
+    pub bytes: u16,
+    pub cycles: u8,
+}
+
+impl Opcode {
+    pub fn new(
+        name: &'static str,
+        reg1: TargetReg,
+        reg2: TargetReg,
+        bytes: u16,
+        cycles: u8
+    ) -> Self {
+        Self {
+            name,
+            reg1,
+            reg2,
+            bytes,
+            cycles,
+        }
+    }
+}
+
+lazy_static! {
+    pub static ref CPU_OP_CODES: HashMap<u8, Opcode> = {
+        let mut map = HashMap::new();
+
+        // adc a, r8
+        map.insert(0x88, Opcode::new("ADC", TargetReg::A, TargetReg::R8(0), 1, 1));
+        map.insert(0x89, Opcode::new("ADC", TargetReg::A, TargetReg::R8(1), 1, 1));
+        map.insert(0x8a, Opcode::new("ADC", TargetReg::A, TargetReg::R8(2), 1, 1));
+        map.insert(0x8b, Opcode::new("ADC", TargetReg::A, TargetReg::R8(3), 1, 1));
+        map.insert(0x8c, Opcode::new("ADC", TargetReg::A, TargetReg::R8(4), 1, 1));
+        map.insert(0x8d, Opcode::new("ADC", TargetReg::A, TargetReg::R8(5), 1, 1));
+        map.insert(0x8e, Opcode::new("ADC", TargetReg::A, TargetReg::R8(6), 1, 1));
+        map.insert(0x8f, Opcode::new("ADC", TargetReg::A, TargetReg::R8(7), 1, 1));
+
+        // adc a, imm8
+        map.insert(0xce, Opcode::new("ADC", TargetReg::A, TargetReg::Imm8, 2, 2));
+
+        // add a, r8
+        map.insert(0x80, Opcode::new("ADD", TargetReg::A, TargetReg::R8(0), 1, 1));
+        map.insert(0x81, Opcode::new("ADD", TargetReg::A, TargetReg::R8(1), 1, 1));
+        map.insert(0x82, Opcode::new("ADD", TargetReg::A, TargetReg::R8(2), 1, 1));
+        map.insert(0x83, Opcode::new("ADD", TargetReg::A, TargetReg::R8(3), 1, 1));
+        map.insert(0x84, Opcode::new("ADD", TargetReg::A, TargetReg::R8(4), 1, 1));
+        map.insert(0x85, Opcode::new("ADD", TargetReg::A, TargetReg::R8(5), 1, 1));
+        map.insert(0x86, Opcode::new("ADD", TargetReg::A, TargetReg::R8(6), 1, 1));
+        map.insert(0x87, Opcode::new("ADD", TargetReg::A, TargetReg::R8(7), 1, 1));
+
+        // add a, imm8
+        map.insert(0xc6, Opcode::new("ADD", TargetReg::A, TargetReg::Imm8, 2, 2));
+
+        // add hl, r16
+        map.insert(0x09, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(0), 2, 1));
+        map.insert(0x19, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(1), 2, 1));
+        map.insert(0x29, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(2), 2, 1));
+        map.insert(0x39, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(3), 2, 1));
+
+        // add sp, imm8
+        map.insert(0xe8, Opcode::new("ADD", TargetReg::SP, TargetReg::Imm8, 2, 4));
+
+        // ld r8, r8
+        map.insert(0x40, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(0), 1, 1));
+        map.insert(0x41, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(1), 1, 1));
+        map.insert(0x42, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(2), 1, 1));
+        map.insert(0x43, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(3), 1, 1));
+        map.insert(0x44, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(4), 1, 1));
+        map.insert(0x45, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(5), 1, 1));
+        map.insert(0x46, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(6), 1, 2));
+        map.insert(0x47, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(7), 1, 1));
+
+        map.insert(0x48, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(0), 1, 1));
+        map.insert(0x49, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(1), 1, 1));
+        map.insert(0x4a, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(2), 1, 1));
+        map.insert(0x4b, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(3), 1, 1));
+        map.insert(0x4c, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(4), 1, 1));
+        map.insert(0x4d, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(5), 1, 1));
+        map.insert(0x4e, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(6), 1, 2));
+        map.insert(0x4f, Opcode::new("LD", TargetReg::R8(1), TargetReg::R8(7), 1, 1));
+
+        map.insert(0x50, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(0), 1, 1));
+        map.insert(0x51, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(1), 1, 1));
+        map.insert(0x52, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(2), 1, 1));
+        map.insert(0x53, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(3), 1, 1));
+        map.insert(0x54, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(4), 1, 1));
+        map.insert(0x55, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(5), 1, 1));
+        map.insert(0x56, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(6), 1, 2));
+        map.insert(0x57, Opcode::new("LD", TargetReg::R8(2), TargetReg::R8(7), 1, 1));
+
+        map.insert(0x58, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(0), 1, 1));
+        map.insert(0x59, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(1), 1, 1));
+        map.insert(0x5a, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(2), 1, 1));
+        map.insert(0x5b, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(3), 1, 1));
+        map.insert(0x5c, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(4), 1, 1));
+        map.insert(0x5d, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(5), 1, 1));
+        map.insert(0x5e, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(6), 1, 2));
+        map.insert(0x5f, Opcode::new("LD", TargetReg::R8(3), TargetReg::R8(7), 1, 1));
+
+        map.insert(0x60, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(0), 1, 1));
+        map.insert(0x61, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(1), 1, 1));
+        map.insert(0x62, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(2), 1, 1));
+        map.insert(0x63, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(3), 1, 1));
+        map.insert(0x64, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(4), 1, 1));
+        map.insert(0x65, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(5), 1, 1));
+        map.insert(0x66, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(6), 1, 2));
+        map.insert(0x67, Opcode::new("LD", TargetReg::R8(4), TargetReg::R8(7), 1, 1));
+
+        map.insert(0x68, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(0), 1, 1));
+        map.insert(0x69, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(1), 1, 1));
+        map.insert(0x6a, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(2), 1, 1));
+        map.insert(0x6b, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(3), 1, 1));
+        map.insert(0x6c, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(4), 1, 1));
+        map.insert(0x6d, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(5), 1, 1));
+        map.insert(0x6e, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(6), 1, 2));
+        map.insert(0x6f, Opcode::new("LD", TargetReg::R8(5), TargetReg::R8(7), 1, 1));
+
+        map.insert(0x70, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(0), 1, 2));
+        map.insert(0x71, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(1), 1, 2));
+        map.insert(0x72, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(2), 1, 2));
+        map.insert(0x73, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(3), 1, 2));
+        map.insert(0x74, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(4), 1, 2));
+        map.insert(0x75, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(5), 1, 2));
+        //map.insert(0x76, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(6), 1, 2)); 0x76 is halt opcode
+        map.insert(0x77, Opcode::new("LD", TargetReg::R8(6), TargetReg::R8(7), 1, 2));
+
+        map.insert(0x78, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(0), 1, 1));
+        map.insert(0x79, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(1), 1, 1));
+        map.insert(0x7a, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(2), 1, 1));
+        map.insert(0x7b, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(3), 1, 1));
+        map.insert(0x7c, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(4), 1, 1));
+        map.insert(0x7d, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(5), 1, 1));
+        map.insert(0x7e, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(6), 1, 2));
+        map.insert(0x7f, Opcode::new("LD", TargetReg::R8(7), TargetReg::R8(7), 1, 1));
+
+        // ld r8, imm8
+        map.insert(0x06, Opcode::new("LD", TargetReg::R8(0), TargetReg::Imm8, 2, 2));
+        map.insert(0x0e, Opcode::new("LD", TargetReg::R8(1), TargetReg::Imm8, 2, 2));
+        map.insert(0x16, Opcode::new("LD", TargetReg::R8(2), TargetReg::Imm8, 2, 2));
+        map.insert(0x1e, Opcode::new("LD", TargetReg::R8(3), TargetReg::Imm8, 2, 2));
+        map.insert(0x26, Opcode::new("LD", TargetReg::R8(4), TargetReg::Imm8, 2, 2));
+        map.insert(0x2e, Opcode::new("LD", TargetReg::R8(5), TargetReg::Imm8, 2, 2));
+        map.insert(0x36, Opcode::new("LD", TargetReg::R8(6), TargetReg::Imm8, 2, 3));
+        map.insert(0x3e, Opcode::new("LD", TargetReg::R8(7), TargetReg::Imm8, 2, 2));
+
+        // ld r16, imm16
+        map.insert(0x01, Opcode::new("LD", TargetReg::R16(0), TargetReg::Imm16, 3, 3));
+        map.insert(0x11, Opcode::new("LD", TargetReg::R16(1), TargetReg::Imm16, 3, 3));
+        map.insert(0x21, Opcode::new("LD", TargetReg::R16(2), TargetReg::Imm16, 3, 3));
+        map.insert(0x31, Opcode::new("LD", TargetReg::R16(3), TargetReg::Imm16, 3, 3));
+
+        // ld [r16mem], a
+        map.insert(0x02, Opcode::new("LD", TargetReg::R16mem(0), TargetReg::A, 1, 2));
+        map.insert(0x12, Opcode::new("LD", TargetReg::R16mem(1), TargetReg::A, 1, 2));
+        map.insert(0x22, Opcode::new("LD", TargetReg::R16mem(2), TargetReg::A, 1, 2));
+        map.insert(0x32, Opcode::new("LD", TargetReg::R16mem(3), TargetReg::A, 1, 2));
+
+        // ldh [c], a
+        map.insert(0xe2, Opcode::new("LDH", TargetReg::C, TargetReg::A, 1, 2));
+
+        // ld a, [r16mem]
+        map.insert(0x0a, Opcode::new("LD", TargetReg::A, TargetReg::R16mem(0), 1, 2));
+        map.insert(0x1a, Opcode::new("LD", TargetReg::A, TargetReg::R16mem(1), 1, 2));
+        map.insert(0x2a, Opcode::new("LD", TargetReg::A, TargetReg::R16mem(2), 1, 2));
+        map.insert(0x3a, Opcode::new("LD", TargetReg::A, TargetReg::R16mem(3), 1, 2));
+
+        // ld a, [imm16]
+        map.insert(0xfa, Opcode::new("LD", TargetReg::A, TargetReg::Ptr, 3, 4));
+
+        // ldh [imm8], a
+        map.insert(0xe0, Opcode::new("LDH", TargetReg::Imm8, TargetReg::A, 2, 3));
+
+        // ld [imm16], a
+        map.insert(0xea, Opcode::new("LD", TargetReg::Ptr, TargetReg::A, 3, 4));
+
+        // ldh a, [imm8]
+        map.insert(0xf0, Opcode::new("LDH", TargetReg::A, TargetReg::Imm8, 2, 3));
+
+        // ldh a, [c]
+        map.insert(0xf2, Opcode::new("LDH", TargetReg::A, TargetReg::C, 1, 2));
+
+        // ld [imm16], sp
+        map.insert(0x08, Opcode::new("LD", TargetReg::Imm16, TargetReg::SP, 3, 5));
+
+        // ld hl, sp + imm8
+        map.insert(0xf8, Opcode::new("LD", TargetReg::R16(2), TargetReg::SPimm8, 2, 3));
+
+        // ld sp, hl
+        map.insert(0xf9, Opcode::new("LD", TargetReg::SP, TargetReg::R16(2), 1, 2));
+
+        map.insert(0x00, Opcode::new("NOP", TargetReg::None, TargetReg::None, 1, 1));
+
+        map
+    };
+}
