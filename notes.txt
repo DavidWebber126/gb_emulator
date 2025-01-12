@@ -1,2 +1,5 @@
 Notes:
-- ld hl, sp + imm8 (0xf8) needs to check for overflow in setting flags. I have ignored for now
+- ld hl, sp + imm8 (0xf8) needs to check for overflow in setting flags. Maybe put into seperate instruction
+since it is only LD op to change the flags.
+- Dec r8 changes flags but dec r16 does not.
+- Better testing

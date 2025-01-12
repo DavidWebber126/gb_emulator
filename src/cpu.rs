@@ -255,8 +255,6 @@ impl CPU {
             //println!("Opcode: {:02X}, PC: {}", opcode, self.program_counter);
             let opcode = opcodes.get(&opcode).unwrap();
 
-            //self.pc += 1; // Try waiting until after instruction completion to increment sp.
-
             match opcode.name {
                 "ADD" => {
                     let arg1 = self.reg_read(&opcode.reg1).unwrap();
@@ -265,29 +263,49 @@ impl CPU {
 
                     self.reg_write(&opcode.reg1, sum);
                 }
-                "LD" => {
+                "CALL" => {
+                    todo!()
+                }
+                "CCF" => {
+                    self.flags.toggle(FlagsReg::carry);
+                }
+                "CP" => {
+                    todo!()
+                }
+                "CPL" => {
+                    self.a = !self.a;
+                    self.flags.insert(FlagsReg::subtraction);
+                    self.flags.insert(FlagsReg::half_carry);
+                }
+                "DAA" => {
+                    todo!()
+                }
+                "DEC" => {
+                    let mut reg = self.reg_read(&opcode.reg1).unwrap();
+                    reg -= 1;
+                    self.reg_write(&opcode.reg1, reg);
+                    self.flags.set(FlagsReg::zero, reg == 0);
+                    self.flags.insert(FlagsReg::subtraction);
+                    todo!("Need to implement half carry")
+                }
+                "DI" => {
+                    todo!()
+                }
+                "EI" => {
+                    todo!()
+                }
+                "HALT" => {
+                    todo!()
+                }
+                "INC" => {
+                    todo!("Flags on r8 but not on r16")
+                }
+                "JP" => {
+                    todo!()
+                }
+                "LD" | "LDH" => {
                     let value = self.reg_read(&opcode.reg2).unwrap();
                     self.reg_write(&opcode.reg1, value);
-
-                    match opcode.reg2 {
-                        TargetReg::SPimm8 => {
-                            let offset = self.bus.mem_read(self.program_counter + 1);
-                            // set H flag on overflow from bit 3.
-                            let half_carry: u8;
-                            if offset & 0x80 > 0 {
-                                let offset = (!offset).wrapping_add(1);
-                                half_carry = (self.stack_pointer as u8 & 0xf) - (offset & 0xf);
-                            } else {
-                                half_carry = (self.stack_pointer as u8 & 0xf) + (offset & 0xf);
-                            }
-                            self.flags.set(FlagsReg::half_carry, half_carry & 0x10 > 0);
-                            // set C flag on overflow from bit 7.
-                            let (_, carry) = (self.stack_pointer as u8)
-                                                .overflowing_add_signed(offset as i8);
-                            self.flags.set(FlagsReg::carry, carry);
-                        }
-                        _ => {} // flags are unaffected in every other LD instruction
-                    }
                 }
                 "NOP" => return,
                 _ => panic!("Opcode: {} is not implemented yet", opcode.name)
@@ -355,7 +373,6 @@ impl CPU {
 #[cfg(test)]
 mod tests {
     use std::vec;
-
     use super::*;
     use rand::prelude::*;
 
