@@ -256,6 +256,9 @@ impl CPU {
             let opcode = opcodes.get(&opcode).unwrap();
 
             match opcode.name {
+                "ADC" => {
+                    todo!()
+                }
                 "ADD" => {
                     let arg1 = self.reg_read(&opcode.reg1).unwrap();
                     let arg2 = self.reg_read(&opcode.reg2).unwrap();
@@ -303,11 +306,25 @@ impl CPU {
                 "JP" => {
                     todo!()
                 }
+                "JR" => {
+                    todo!()
+                }
                 "LD" | "LDH" => {
                     let value = self.reg_read(&opcode.reg2).unwrap();
                     self.reg_write(&opcode.reg1, value);
                 }
-                "NOP" => return,
+                "NOP" => {
+                    // do nothing
+                }
+                "OR" => {
+                    todo!()
+                }
+                "POP" => {
+                    todo!()
+                }
+                "PUSH" => {
+                    todo!()
+                }
                 _ => panic!("Opcode: {} is not implemented yet", opcode.name)
             }
 

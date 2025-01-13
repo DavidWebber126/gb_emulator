@@ -182,8 +182,11 @@ lazy_static! {
         // jp hl
         map.insert(0xd9, Opcode::new("JP", TargetReg::None, TargetReg::None, 1, 1));
 
-        //jr n16
-        map.insert(, v)
+        // jr n16
+        map.insert(0x18, Opcode::new("JR", TargetReg::None, TargetReg::None, 2, 3));
+
+        // jr cc, n16
+        map.insert(0x20, Opcode::new("JR", TargetReg::Cond(0), TargetReg::None, 2, 2));
         
         // ld r8, r8
         map.insert(0x40, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(0), 1, 1));
@@ -313,7 +316,35 @@ lazy_static! {
         // ld sp, hl
         map.insert(0xf9, Opcode::new("LD", TargetReg::SP, TargetReg::R16(2), 1, 2));
 
+        // NOP
         map.insert(0x00, Opcode::new("NOP", TargetReg::None, TargetReg::None, 1, 1));
+
+        // or a, r8
+        map.insert(0xb0, Opcode::new("OR", TargetReg::A, TargetReg::R8(0), 1, 1));
+        map.insert(0xb1, Opcode::new("OR", TargetReg::A, TargetReg::R8(1), 1, 1));
+        map.insert(0xb2, Opcode::new("OR", TargetReg::A, TargetReg::R8(2), 1, 1));
+        map.insert(0xb3, Opcode::new("OR", TargetReg::A, TargetReg::R8(3), 1, 1));
+        map.insert(0xb4, Opcode::new("OR", TargetReg::A, TargetReg::R8(4), 1, 1));
+        map.insert(0xb5, Opcode::new("OR", TargetReg::A, TargetReg::R8(5), 1, 1));
+        map.insert(0xb6, Opcode::new("OR", TargetReg::A, TargetReg::R8(6), 1, 2)); // or a, [hl]
+        map.insert(0xb7, Opcode::new("OR", TargetReg::A, TargetReg::R8(7), 1, 1));
+
+        // or a, n8
+        map.insert(0xf6, Opcode::new("OR", TargetReg::A, TargetReg::Imm8, 2, 2));
+
+        // pop r16stk
+        map.insert(0xc1, Opcode::new("POP", TargetReg::R16stk(0), TargetReg::None, 1, 3));
+        map.insert(0xd1, Opcode::new("POP", TargetReg::R16stk(1), TargetReg::None, 1, 3));
+        map.insert(0xe1, Opcode::new("POP", TargetReg::R16stk(2), TargetReg::None, 1, 3));
+        map.insert(0xf1, Opcode::new("POP", TargetReg::R16stk(3), TargetReg::None, 1, 3));
+
+        // push r16stk
+        map.insert(0xc5, Opcode::new("PUSH", TargetReg::R16stk(0), TargetReg::None, 1, 4));
+        map.insert(0xd5, Opcode::new("PUSH", TargetReg::R16stk(1), TargetReg::None, 1, 4));
+        map.insert(0xe5, Opcode::new("PUSH", TargetReg::R16stk(2), TargetReg::None, 1, 4));
+        map.insert(0xf5, Opcode::new("PUSH", TargetReg::R16stk(3), TargetReg::None, 1, 4));
+
+
 
         map
     };
