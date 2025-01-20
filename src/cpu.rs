@@ -251,45 +251,72 @@ impl CPU {
         loop {
             let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_OP_CODES;
 
-            let opcode = self.bus.mem_read(self.program_counter);
-            //println!("Opcode: {:02X}, PC: {}", opcode, self.program_counter);
-            let opcode = opcodes.get(&opcode).unwrap();
+            let opcode_num = self.bus.mem_read(self.program_counter);
+            let opcode = opcodes.get(&opcode_num).unwrap();
 
-            match opcode.name {
-                "ADC" => {
-                    todo!()
+            match opcode_num {
+                // 8 bit ADC
+                0x88..=0x8f | 0xce => {
+                    let arg = self.reg_read(&opcode.reg2).unwrap() as u8;
+                    let sum = self.add_u8(self.a, arg, true);
+
+                    self.a = sum;
                 }
-                "ADD" => {
-                    let arg1 = self.reg_read(&opcode.reg1).unwrap();
-                    let arg2 = self.reg_read(&opcode.reg2).unwrap();
-                    let sum = self.add(arg1, arg2, &opcode.reg1);
+                // 8 bit ADD
+                0x80..=0x87 | 0xc6 | 0xe8 => {
+                    let arg1 = self.reg_read(&opcode.reg1).unwrap() as u8;
+                    let arg2 = self.reg_read(&opcode.reg2).unwrap() as u8;
+                    let sum = self.add_u8(arg1, arg2, false);
 
-                    self.reg_write(&opcode.reg1, sum);
+                    self.reg_write(&opcode.reg1, sum as u16);
+                }
+                // 16 bit ADD
+                0x09 | 0x19 | 0x29 | 0x39 => {
+                    let arg = self.reg_read(&opcode.reg2).unwrap();
+                    let sum = self.add_u16(self.get_hl(), arg, false);
+
+                    self.set_hl(sum);
+                }
+                // 8 bit AND
+                0xa0..=0xa7 | 0xe6 => {
+                    let arg = self.reg_read(&opcode.reg2).unwrap() as u8;
+                    self.a = self.a & arg;
                 }
                 "CALL" => {
                     todo!()
                 }
-                "CCF" => {
+                // CCF
+                0x3f => {
                     self.flags.toggle(FlagsReg::carry);
                 }
-                "CP" => {
+                // 8 bit CP
+                0xb8..=0xbf | 0xfe => {
                     todo!()
                 }
-                "CPL" => {
+                // CPL
+                0x2f => {
                     self.a = !self.a;
                     self.flags.insert(FlagsReg::subtraction);
                     self.flags.insert(FlagsReg::half_carry);
                 }
-                "DAA" => {
+                // DAA
+                0x27 => {
                     todo!()
                 }
-                "DEC" => {
-                    let mut reg = self.reg_read(&opcode.reg1).unwrap();
-                    reg -= 1;
-                    self.reg_write(&opcode.reg1, reg);
-                    self.flags.set(FlagsReg::zero, reg == 0);
+                // 8 bit DEC
+                0x05 | 0x0d | 0x15 | 0x1d | 0x25 | 0x2d | 0x35 | 0x3d => {
+                    let mut val = self.reg_read(&opcode.reg1).unwrap();
+                    val.wrapping_sub(1);
+                    self.reg_write(&opcode.reg1, val);
+                    self.flags.set(FlagsReg::zero, val == 0);
                     self.flags.insert(FlagsReg::subtraction);
                     todo!("Need to implement half carry")
+                }
+                // 16 bit DEC
+                0x0b | 0x1b | 0x2b | 0x3b => {
+                    let mut val = self.reg_read(&opcode.reg1).unwrap();
+                    val.wrapping_sub(1);
+                    self.reg_write(&opcode.reg1, val);
                 }
                 "DI" => {
                     todo!()
@@ -333,57 +360,31 @@ impl CPU {
         }
     }
 
-    // Add two inputs and set flags accordingly. Need to know if we are dealing with
-    // 8 bit or 16 bit registers for overflow.
-    fn add(&mut self, arg1: u16, arg2: u16, target: &TargetReg) -> u16 {
-        match target {
-            // 8 bit add
-            TargetReg::A => {
-                assert!(arg1 & 0xff00 == 0);
-                assert!(arg2 & 0xff00 == 0);
-                let sum = arg1 + arg2;
-                // set zero flag if sum is 0.
-                self.flags.set(FlagsReg::zero, sum == 0);
-                // set n flag to 0.
-                self.flags.remove(FlagsReg::subtraction);
-                // set h flag if overflow in lower half of byte.
-                let half_carry = (arg1 & 0xf) + (arg2 & 0xf);
-                self.flags.set(FlagsReg::half_carry, half_carry & 0x0f > 0);
-                // set c flag if overflow in byte.
-                self.flags.set(FlagsReg::carry, sum & 0xff00 > 0);
+    fn add_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {
+        let (sum, carry) = arg1.overflowing_add(arg2);
+        // set n flag to 0.
+        self.flags.remove(FlagsReg::subtraction);
+        // set h flag if overflow occured at bit 3
+        let half_carry = (arg1 & 0x0f) + (arg2 & 0x0f);
+        self.flags.set(FlagsReg::half_carry, half_carry & 0xf0 > 0);
+        // set c flag if overflow occured at bit 15
+        self.flags.set(FlagsReg::carry, carry);
 
-                sum & 0xff
-            }
-            TargetReg::R16(_) => {
-                let (sum, carry) = arg1.overflowing_add(arg2);
-                // set n flag to 0.
-                self.flags.remove(FlagsReg::subtraction);
-                // set h flag if overflow occured at bit 11
-                let half_carry = (arg1 & 0xf00) + (arg2 & 0xf00);
-                self.flags.set(FlagsReg::half_carry, half_carry & 0xf000 > 0);
-                // set c flag if overflow occured at bit 15
-                self.flags.set(FlagsReg::carry, carry);
+        sum
+    }
 
-                sum
-            }
-            TargetReg::SP => {
-                let stack_pointer = self.stack_pointer as u8;
-                let (sum, carry) = stack_pointer.overflowing_add_signed(arg2 as i8);
-                self.flags.remove(FlagsReg::zero);
-                self.flags.remove(FlagsReg::subtraction);
-                self.flags.set(FlagsReg::carry, carry);
-                // set h flag if overflow in bit 3.
-                let half_carry = if arg2 & 0x80 > 0 {
-                    (self.stack_pointer & 0xf) + !(arg2 & 0xf) + 1
-                } else {
-                    (self.stack_pointer & 0xf) + (arg2 & 0xf)
-                };
-                self.flags.set(FlagsReg::half_carry, half_carry & 0xf0 > 0);
 
-                sum as u16
-            }
-            _ => panic!("{:?} is not implemented for add", target)
-        }
+    fn add_u16(&mut self, arg1: u16, arg2: u16, carry: bool) -> u16 {
+        let (sum, carry) = arg1.overflowing_add(arg2);
+        // set n flag to 0.
+        self.flags.remove(FlagsReg::subtraction);
+        // set h flag if overflow occured at bit 11
+        let half_carry = (arg1 & 0xf00) + (arg2 & 0xf00);
+        self.flags.set(FlagsReg::half_carry, half_carry & 0xf000 > 0);
+        // set c flag if overflow occured at bit 15
+        self.flags.set(FlagsReg::carry, carry);
+
+        sum
     }
 }
 

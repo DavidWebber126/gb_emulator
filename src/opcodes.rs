@@ -60,7 +60,7 @@ lazy_static! {
         map.insert(0x8e, Opcode::new("ADC", TargetReg::A, TargetReg::R8(6), 1, 2)); // adc a, [hl]
         map.insert(0x8f, Opcode::new("ADC", TargetReg::A, TargetReg::R8(7), 1, 1));
 
-        // adc a, r8
+        // adc a, n8
         map.insert(0xce, Opcode::new("ADC", TargetReg::A, TargetReg::Imm8, 2, 2));
 
         // add a, r8
@@ -136,7 +136,7 @@ lazy_static! {
         map.insert(0x1d, Opcode::new("DEC", TargetReg::R8(3), TargetReg::None, 1, 1));
         map.insert(0x25, Opcode::new("DEC", TargetReg::R8(4), TargetReg::None, 1, 1));
         map.insert(0x2d, Opcode::new("DEC", TargetReg::R8(5), TargetReg::None, 1, 1));
-        map.insert(0x35, Opcode::new("DEC", TargetReg::R8(6), TargetReg::None, 1, 1)); // dec [hl]
+        map.insert(0x35, Opcode::new("DEC", TargetReg::R8(6), TargetReg::None, 1, 3)); // dec [hl]
         map.insert(0x3d, Opcode::new("DEC", TargetReg::R8(7), TargetReg::None, 1, 1));
 
         // dec r16
