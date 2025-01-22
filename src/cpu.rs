@@ -30,6 +30,7 @@ pub struct CPU {
     l: u8,
     stack_pointer: u16,
     program_counter: u16,
+    ime: bool,
     bus: Bus,
 }
 
@@ -46,6 +47,7 @@ impl CPU {
             l: 0,
             stack_pointer: 0xfffe,
             program_counter: 0,
+            ime: false,
             bus
         }
     }
@@ -86,12 +88,24 @@ impl CPU {
         (self.a as u16) << 8 | self.flags.bits() as u16
     }
 
+    fn push_u8_to_stack(&mut self, val: u8) {
+        self.bus.mem_write(self.stack_pointer, val);
+        self.stack_pointer -= 1;
+    }
+
+    fn push_u16_to_stack(&mut self, addr: u16) {
+        let [lo, hi] = addr.to_le_bytes();
+        self.push_u8_to_stack(hi);
+        self.push_u8_to_stack(lo);
+    }
+
     fn reg_read(&mut self, target: &TargetReg) -> Option<u16> {
         match target {
             TargetReg::R8(reg) => Some(self.r8_read(*reg) as u16),
             TargetReg::R16(reg) => Some(self.r16_read(*reg)),
             TargetReg::R16stk(reg) => Some(self.r16stk_read(*reg)),
             TargetReg::R16mem(reg) => Some(self.r16mem_read(*reg)),
+            TargetReg::Cond(code) => Some(*code as u16),
             TargetReg::A => Some(self.a as u16),
             TargetReg::SP => Some(self.stack_pointer),
             TargetReg::SPimm8 => {
@@ -280,10 +294,34 @@ impl CPU {
                 // 8 bit AND
                 0xa0..=0xa7 | 0xe6 => {
                     let arg = self.reg_read(&opcode.reg2).unwrap() as u8;
-                    self.a = self.a & arg;
+                    self.a &= arg;
+
+                    self.flags.set(FlagsReg::zero, self.a == 0);
+                    self.flags.remove(FlagsReg::subtraction);
+                    self.flags.insert(FlagsReg::half_carry);
+                    self.flags.remove(FlagsReg::carry);
                 }
-                "CALL" => {
-                    todo!()
+                // CALL
+                0xcd => {
+                    let addr = self.reg_read(&opcode.reg1).unwrap();
+                    self.push_u16_to_stack(self.program_counter + 3);
+                }
+                // CALL cc
+                0xc4 | 0xcc | 0xd4 | 0xdc => {
+                    let condition = self.reg_read(&opcode.reg1).unwrap();
+                    let should_execute = match  condition {
+                        0 => !self.flags.contains(FlagsReg::zero), // Cond(0) => zero flags is not set
+                        1 => self.flags.contains(FlagsReg::zero), // Cond(1) => zero flag is set
+                        2 => !self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        3 => self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        _ => panic!("Condition Codes are 0-3. Received {}", condition)
+                    };
+                    if should_execute {
+                        // inc cycle count 
+                        // self.cycles += 1;
+                        let addr = self.reg_read(&opcode.reg2).unwrap();
+                        self.push_u16_to_stack(self.program_counter + 3);
+                    }
                 }
                 // CCF
                 0x3f => {
@@ -306,51 +344,124 @@ impl CPU {
                 // 8 bit DEC
                 0x05 | 0x0d | 0x15 | 0x1d | 0x25 | 0x2d | 0x35 | 0x3d => {
                     let mut val = self.reg_read(&opcode.reg1).unwrap();
-                    val.wrapping_sub(1);
+                    let half_carry = ((val & 0x0f) - 1) & 0x10 > 0;
+                    val = val.wrapping_sub(1);
                     self.reg_write(&opcode.reg1, val);
                     self.flags.set(FlagsReg::zero, val == 0);
                     self.flags.insert(FlagsReg::subtraction);
-                    todo!("Need to implement half carry")
+                    self.flags.set(FlagsReg::half_carry, half_carry);
                 }
                 // 16 bit DEC
                 0x0b | 0x1b | 0x2b | 0x3b => {
                     let mut val = self.reg_read(&opcode.reg1).unwrap();
-                    val.wrapping_sub(1);
+                    val = val.wrapping_sub(1);
                     self.reg_write(&opcode.reg1, val);
                 }
-                "DI" => {
+                // DI
+                0xf3 => {
+                    self.ime = false;
+                }
+                // EI
+                0xfa => {
+                    self.ime = true;
+                }
+                // HALT
+                0x76 => {
                     todo!()
                 }
-                "EI" => {
-                    todo!()
+                // 8 bit INC
+                0x04 | 0x0c | 0x14 | 0x1c | 0x24 | 0x2c | 0x34 | 0x3c => {
+                    let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                    let half_carry = val & 0x0f == 0x0f;
+                    val = val.wrapping_add(1);
+                    self.reg_write(&opcode.reg1, val as u16);
+
+                    self.flags.set(FlagsReg::zero, val == 0);
+                    self.flags.remove(FlagsReg::subtraction);
+                    self.flags.set(FlagsReg::half_carry, half_carry);
                 }
-                "HALT" => {
-                    todo!()
+                // 16 bit INC
+                0x03 | 0x13 | 0x23 | 0x33 => {
+                    let mut val = self.reg_read(&opcode.reg1).unwrap();
+                    val = val.wrapping_add(1);
+                    self.reg_write(&opcode.reg1, val);
                 }
-                "INC" => {
-                    todo!("Flags on r8 but not on r16")
+                // JP
+                0xc3 => {
+                    let addr = self.reg_read(&opcode.reg1).unwrap();
+                    self.program_counter = addr - 3; // Subtract 3 bytes to account for the addition of 3 bytes from the JP opcode
                 }
-                "JP" => {
-                    todo!()
+                // JP cc
+                0xc2 | 0xca | 0xd2 | 0xda => {
+                    let condition = self.reg_read(&opcode.reg1).unwrap();
+                    let should_execute = match  condition {
+                        0 => !self.flags.contains(FlagsReg::zero), // Cond(0) => zero flags is not set
+                        1 => self.flags.contains(FlagsReg::zero), // Cond(1) => zero flag is set
+                        2 => !self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        3 => self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        _ => panic!("Condition Codes are 0-3. Received {}", condition)
+                    };
+                    if should_execute {
+                        // inc cycle count 
+                        // self.cycles += 1;
+                        self.program_counter = self.reg_read(&opcode.reg2).unwrap() - 3;
+                    }
                 }
-                "JR" => {
-                    todo!()
+                // JR imm8
+                0x18 => {
+                    let offset = self.reg_read(&opcode.reg1).unwrap() as u8;
+                    self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
+                    self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
+
+                }
+                // JR cc
+                0x20 | 0x28 | 0x30 | 0x38 => {
+                    let offset = self.reg_read(&opcode.reg2).unwrap() as u8;
+                    let condition = self.reg_read(&opcode.reg1).unwrap();
+                    let should_execute = match  condition {
+                        0 => !self.flags.contains(FlagsReg::zero), // Cond(0) => zero flags is not set
+                        1 => self.flags.contains(FlagsReg::zero), // Cond(1) => zero flag is set
+                        2 => !self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        3 => self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        _ => panic!("Condition Codes are 0-3. Received {}", condition)
+                    };
+                    if should_execute {
+                        // inc cycle count 
+                        // self.cycles += 1;
+                        self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
+                        self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
+                    }
                 }
                 "LD" | "LDH" => {
                     let value = self.reg_read(&opcode.reg2).unwrap();
                     self.reg_write(&opcode.reg1, value);
                 }
-                "NOP" => {
+                // NOP
+                0x00 => {
                     // do nothing
                 }
-                "OR" => {
-                    todo!()
+                // 8 bit OR
+                0xb0..=0xb7 | 0xf6 => {
+                    let val = self.reg_read(&opcode .reg2).unwrap() as u8;
+                    self.a |= val;
+
+                    self.flags.set(FlagsReg::zero, self.a == 0);
+                    self.flags.remove(FlagsReg::subtraction);
+                    self.flags.remove(FlagsReg::half_carry);
+                    self.flags.remove(FlagsReg::carry);
                 }
-                "POP" => {
-                    todo!()
+                // POP
+                0xc1 | 0xd1 | 0xe1 | 0xf1 => {
+                    let lo = self.bus.mem_read(self.stack_pointer + 1);
+                    let hi = self.bus.mem_read(self.stack_pointer + 2);
+                    let val = u16::from_le_bytes([lo, hi]);
+                    self.stack_pointer += 2;
+                    self.reg_write(&opcode.reg1, val);
                 }
-                "PUSH" => {
-                    todo!()
+                // PUSH
+                0xc5 | 0xd5 | 0xe5 | 0xf5 => {
+                    let val = self.reg_read(&opcode.reg1).unwrap();
+                    self.push_u16_to_stack(val);
                 }
                 _ => panic!("Opcode: {} is not implemented yet", opcode.name)
             }
@@ -361,28 +472,30 @@ impl CPU {
     }
 
     fn add_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {
-        let (sum, carry) = arg1.overflowing_add(arg2);
+        let (sum, c1) = arg1.overflowing_add(arg2);
+        let (sum, c2) = sum.overflowing_add(carry as u8); // if either overflows we need to set carry flag
         // set n flag to 0.
         self.flags.remove(FlagsReg::subtraction);
         // set h flag if overflow occured at bit 3
-        let half_carry = (arg1 & 0x0f) + (arg2 & 0x0f);
+        let half_carry = (arg1 & 0x0f) + (arg2 & 0x0f) + carry as u8;
         self.flags.set(FlagsReg::half_carry, half_carry & 0xf0 > 0);
         // set c flag if overflow occured at bit 15
-        self.flags.set(FlagsReg::carry, carry);
+        self.flags.set(FlagsReg::carry, c1 | c2);
 
         sum
     }
 
 
     fn add_u16(&mut self, arg1: u16, arg2: u16, carry: bool) -> u16 {
-        let (sum, carry) = arg1.overflowing_add(arg2);
+        let (sum, c1) = arg1.overflowing_add(arg2);
+        let (sum, c2) = sum.overflowing_add(carry as u16); // if either overflows we need to set carry flag
         // set n flag to 0.
         self.flags.remove(FlagsReg::subtraction);
         // set h flag if overflow occured at bit 11
-        let half_carry = (arg1 & 0xf00) + (arg2 & 0xf00);
+        let half_carry = (arg1 & 0xf00) + (arg2 & 0xf00) + carry as u16;
         self.flags.set(FlagsReg::half_carry, half_carry & 0xf000 > 0);
         // set c flag if overflow occured at bit 15
-        self.flags.set(FlagsReg::carry, carry);
+        self.flags.set(FlagsReg::carry, c1 | c2);
 
         sum
     }

@@ -99,7 +99,7 @@ lazy_static! {
         map.insert(0xe6, Opcode::new("AND", TargetReg::A, TargetReg::Imm8, 2, 2));
 
         // call r16
-        map.insert(0xcd, Opcode::new("CALL", TargetReg::None, TargetReg::None, 3, 6));
+        map.insert(0xcd, Opcode::new("CALL", TargetReg::Imm16, TargetReg::None, 3, 6));
 
         // call cond, r16
         map.insert(0xc4, Opcode::new("CALL", TargetReg::Cond(0), TargetReg::Imm16, 3, 3));
@@ -171,22 +171,25 @@ lazy_static! {
         map.insert(0x33, Opcode::new("INC", TargetReg::R16(3), TargetReg::None, 1, 2));
 
         // jp n16
-        map.insert(0xc3, Opcode::new("JP", TargetReg::None, TargetReg::None, 3, 4));
+        map.insert(0xc3, Opcode::new("JP", TargetReg::Imm16, TargetReg::None, 3, 4));
 
         // jp cc, n16
-        map.insert(0xc2, Opcode::new("JP", TargetReg::Cond(0), TargetReg::None, 3, 3));
-        map.insert(0xca, Opcode::new("JP", TargetReg::Cond(1), TargetReg::None, 3, 3));
-        map.insert(0xd2, Opcode::new("JP", TargetReg::Cond(2), TargetReg::None, 3, 3));
-        map.insert(0xda, Opcode::new("JP", TargetReg::Cond(3), TargetReg::None, 3, 3));
+        map.insert(0xc2, Opcode::new("JP", TargetReg::Cond(0), TargetReg::Imm16, 3, 3));
+        map.insert(0xca, Opcode::new("JP", TargetReg::Cond(1), TargetReg::Imm16, 3, 3));
+        map.insert(0xd2, Opcode::new("JP", TargetReg::Cond(2), TargetReg::Imm16, 3, 3));
+        map.insert(0xda, Opcode::new("JP", TargetReg::Cond(2), TargetReg::Imm16, 3, 3));
 
         // jp hl
         map.insert(0xd9, Opcode::new("JP", TargetReg::None, TargetReg::None, 1, 1));
 
-        // jr n16
-        map.insert(0x18, Opcode::new("JR", TargetReg::None, TargetReg::None, 2, 3));
+        // jr n8
+        map.insert(0x18, Opcode::new("JR", TargetReg::Imm8, TargetReg::None, 2, 3));
 
-        // jr cc, n16
-        map.insert(0x20, Opcode::new("JR", TargetReg::Cond(0), TargetReg::None, 2, 2));
+        // jr cc, n8
+        map.insert(0x20, Opcode::new("JR", TargetReg::Cond(0), TargetReg::Imm8, 2, 2));
+        map.insert(0x28, Opcode::new("JR", TargetReg::Cond(1), TargetReg::Imm8, 2, 2));
+        map.insert(0x30, Opcode::new("JR", TargetReg::Cond(2), TargetReg::Imm8, 2, 2));
+        map.insert(0x38, Opcode::new("JR", TargetReg::Cond(3), TargetReg::Imm8, 2, 2));
         
         // ld r8, r8
         map.insert(0x40, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(0), 1, 1));
