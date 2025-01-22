@@ -99,6 +99,17 @@ impl CPU {
         self.push_u8_to_stack(lo);
     }
 
+    fn pop_u8_from_stack(&mut self) -> u8 {
+        self.stack_pointer += 1;
+        self.bus.mem_read(self.stack_pointer)
+    }
+
+    fn pop_u16_from_stack(&mut self) -> u16 {
+        let val = self.bus.mem_read_u16(self.stack_pointer + 1);
+        self.stack_pointer += 2;
+        val
+    }
+
     fn reg_read(&mut self, target: &TargetReg) -> Option<u16> {
         match target {
             TargetReg::R8(reg) => Some(self.r8_read(*reg) as u16),
@@ -329,7 +340,8 @@ impl CPU {
                 }
                 // 8 bit CP
                 0xb8..=0xbf | 0xfe => {
-                    todo!()
+                    let val = self.reg_read(&opcode.reg2).unwrap();
+                    todo!("Implement subtraction")
                 }
                 // CPL
                 0x2f => {
@@ -452,16 +464,33 @@ impl CPU {
                 }
                 // POP
                 0xc1 | 0xd1 | 0xe1 | 0xf1 => {
-                    let lo = self.bus.mem_read(self.stack_pointer + 1);
-                    let hi = self.bus.mem_read(self.stack_pointer + 2);
-                    let val = u16::from_le_bytes([lo, hi]);
-                    self.stack_pointer += 2;
+                    let val = self.pop_u16_from_stack();
                     self.reg_write(&opcode.reg1, val);
                 }
                 // PUSH
                 0xc5 | 0xd5 | 0xe5 | 0xf5 => {
                     let val = self.reg_read(&opcode.reg1).unwrap();
                     self.push_u16_to_stack(val);
+                }
+                // RET
+                0xc9 => {
+                    self.program_counter = self.pop_u16_from_stack() - 1; // minus 1 to account for the added byte
+                }
+                // RET cc
+                0xc0 | 0xc8 | 0xd0 | 0xd8 => {
+                    let condition = self.reg_read(&opcode.reg1).unwrap();
+                    let should_execute = match  condition {
+                        0 => !self.flags.contains(FlagsReg::zero), // Cond(0) => zero flags is not set
+                        1 => self.flags.contains(FlagsReg::zero), // Cond(1) => zero flag is set
+                        2 => !self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        3 => self.flags.contains(FlagsReg::carry), // Cond(3) => carry flag is set
+                        _ => panic!("Condition Codes are 0-3. Received {}", condition)
+                    };
+                    if should_execute {
+                        // inc cycle count 
+                        // self.cycles += 1;
+                        self.program_counter = self.pop_u16_from_stack() - 1; // minus 1 to account for the added byte
+                    }
                 }
                 _ => panic!("Opcode: {} is not implemented yet", opcode.name)
             }

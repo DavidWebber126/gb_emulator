@@ -347,7 +347,14 @@ lazy_static! {
         map.insert(0xe5, Opcode::new("PUSH", TargetReg::R16stk(2), TargetReg::None, 1, 4));
         map.insert(0xf5, Opcode::new("PUSH", TargetReg::R16stk(3), TargetReg::None, 1, 4));
 
+        // ret
+        map.insert(0xc9, Opcode::new("RET", TargetReg::None, TargetReg::None, 1, 4));
 
+        // ret cc
+        map.insert(0xc0, Opcode::new("RET", TargetReg::Cond(0), TargetReg::None, 1, 2));
+        map.insert(0xc8, Opcode::new("RET", TargetReg::Cond(1), TargetReg::None, 1, 2));
+        map.insert(0xd0, Opcode::new("RET", TargetReg::Cond(2), TargetReg::None, 1, 2));
+        map.insert(0xd8, Opcode::new("RET", TargetReg::Cond(3), TargetReg::None, 1, 2));
 
         map
     };

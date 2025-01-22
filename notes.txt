@@ -1,7 +1,6 @@
 Notes:
 - ld hl, sp + imm8 (0xf8) needs to check for overflow in setting flags. Maybe put into seperate instruction
 since it is only LD op to change the flags.
-- Need to finish 8 and 16 bit DEC
 - Need to finish LD opcodes
 - EI is set at the next instruction after EI. I'm ignoring that for now and setting the flag immediately
 - Better testing
