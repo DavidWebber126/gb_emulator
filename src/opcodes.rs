@@ -4,17 +4,16 @@ use std::collections::HashMap;
 #[derive(Debug)]
 pub enum TargetReg {
     None,
-    R8(u8), // 0: b, 1: c, 2: d, 3: e, 4: h, 5: l, 6: [hl], 7: a
-    R16(u8), // 0: bc, 1: de, 2: hl, 3: sp
+    R8(u8),     // 0: b, 1: c, 2: d, 3: e, 4: h, 5: l, 6: [hl], 7: a
+    R16(u8),    // 0: bc, 1: de, 2: hl, 3: sp
     R16stk(u8), // 0: bc, 1: de, 2: hl, 3: af
     R16mem(u8), // 0: bc, 1: de, 2: hl+, 3: hl-
-    Cond(u8), // 0: nz, 1: z, 2: nc, 3: c
+    Cond(u8),   // 0: nz, 1: z, 2: nc, 3: c
     B3(u8),
     Tgt3(u8),
     A,
     C,
     SP,
-    SPimm8,
     Imm8,
     Imm16,
     Ptr,
@@ -34,7 +33,7 @@ impl Opcode {
         reg1: TargetReg,
         reg2: TargetReg,
         bytes: u16,
-        cycles: u8
+        cycles: u8,
     ) -> Self {
         Self {
             name,
@@ -149,7 +148,7 @@ lazy_static! {
         map.insert(0xf3, Opcode::new("DI", TargetReg::None, TargetReg::None, 1, 1));
 
         // ei
-        map.insert(0xfa, Opcode::new("EI", TargetReg::None, TargetReg::None, 1, 1));
+        map.insert(0xfb, Opcode::new("EI", TargetReg::None, TargetReg::None, 1, 1));
 
         // halt
         map.insert(0x76, Opcode::new("HALT", TargetReg::None, TargetReg::None, 1, 0));
@@ -190,7 +189,7 @@ lazy_static! {
         map.insert(0x28, Opcode::new("JR", TargetReg::Cond(1), TargetReg::Imm8, 2, 2));
         map.insert(0x30, Opcode::new("JR", TargetReg::Cond(2), TargetReg::Imm8, 2, 2));
         map.insert(0x38, Opcode::new("JR", TargetReg::Cond(3), TargetReg::Imm8, 2, 2));
-        
+
         // ld r8, r8
         map.insert(0x40, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(0), 1, 1));
         map.insert(0x41, Opcode::new("LD", TargetReg::R8(0), TargetReg::R8(1), 1, 1));
@@ -314,7 +313,7 @@ lazy_static! {
         map.insert(0x08, Opcode::new("LD", TargetReg::Imm16, TargetReg::SP, 3, 5));
 
         // ld hl, sp + imm8
-        map.insert(0xf8, Opcode::new("LD", TargetReg::R16(2), TargetReg::SPimm8, 2, 3));
+        map.insert(0xf8, Opcode::new("LD", TargetReg::R16(2), TargetReg::Imm8, 2, 3));
 
         // ld sp, hl
         map.insert(0xf9, Opcode::new("LD", TargetReg::SP, TargetReg::R16(2), 1, 2));
@@ -355,6 +354,76 @@ lazy_static! {
         map.insert(0xc8, Opcode::new("RET", TargetReg::Cond(1), TargetReg::None, 1, 2));
         map.insert(0xd0, Opcode::new("RET", TargetReg::Cond(2), TargetReg::None, 1, 2));
         map.insert(0xd8, Opcode::new("RET", TargetReg::Cond(3), TargetReg::None, 1, 2));
+
+        // reti
+        map.insert(0xd9, Opcode::new("RETI", TargetReg::None, TargetReg::None, 1, 4));
+
+        // rla
+        map.insert(0x17, Opcode::new("RLA", TargetReg::None, TargetReg::None, 1, 1));
+
+        // rlca
+        map.insert(0x07, Opcode::new("RLCA", TargetReg::None, TargetReg::None, 1, 1));
+
+        // rra
+        map.insert(0x1f, Opcode::new("RRA", TargetReg::None, TargetReg::None, 1, 1));
+
+        // rrca
+        map.insert(0x0f, Opcode::new("RRCA", TargetReg::None, TargetReg::None, 1, 1));
+
+        // rst tgt3
+        map.insert(0xc7, Opcode::new("RST", TargetReg::Tgt3(0), TargetReg::None, 1, 4));
+        map.insert(0xcf, Opcode::new("RST", TargetReg::Tgt3(1), TargetReg::None, 1, 4));
+        map.insert(0xd7, Opcode::new("RST", TargetReg::Tgt3(2), TargetReg::None, 1, 4));
+        map.insert(0xdf, Opcode::new("RST", TargetReg::Tgt3(3), TargetReg::None, 1, 4));
+        map.insert(0xe7, Opcode::new("RST", TargetReg::Tgt3(4), TargetReg::None, 1, 4));
+        map.insert(0xef, Opcode::new("RST", TargetReg::Tgt3(5), TargetReg::None, 1, 4));
+        map.insert(0xf7, Opcode::new("RST", TargetReg::Tgt3(6), TargetReg::None, 1, 4));
+        map.insert(0xff, Opcode::new("RST", TargetReg::Tgt3(7), TargetReg::None, 1, 4));
+
+        // sbc a, r8
+        map.insert(0x98, Opcode::new("SBC", TargetReg::A, TargetReg::R8(0), 1, 1));
+        map.insert(0x99, Opcode::new("SBC", TargetReg::A, TargetReg::R8(1), 1, 1));
+        map.insert(0x9a, Opcode::new("SBC", TargetReg::A, TargetReg::R8(2), 1, 1));
+        map.insert(0x9b, Opcode::new("SBC", TargetReg::A, TargetReg::R8(3), 1, 1));
+        map.insert(0x9c, Opcode::new("SBC", TargetReg::A, TargetReg::R8(4), 1, 1));
+        map.insert(0x9d, Opcode::new("SBC", TargetReg::A, TargetReg::R8(5), 1, 1));
+        map.insert(0x9e, Opcode::new("SBC", TargetReg::A, TargetReg::R8(6), 1, 2)); // sbc a, [hl]
+        map.insert(0x9f, Opcode::new("SBC", TargetReg::A, TargetReg::R8(7), 1, 1));
+
+        // sbc a, imm8
+        map.insert(0xde, Opcode::new("SBC", TargetReg::A, TargetReg::Imm8, 2, 2));
+
+        // scf
+        map.insert(0x37, Opcode::new("SCF", TargetReg::None, TargetReg::None, 1, 1));
+
+        // stop
+        map.insert(0x10, Opcode::new("STOP", TargetReg::None, TargetReg::None, 2, 0));
+
+        // sub a, r8
+        map.insert(0x90, Opcode::new("SUB", TargetReg::A, TargetReg::R8(0), 1, 1));
+        map.insert(0x91, Opcode::new("SUB", TargetReg::A, TargetReg::R8(1), 1, 1));
+        map.insert(0x92, Opcode::new("SUB", TargetReg::A, TargetReg::R8(2), 1, 1));
+        map.insert(0x93, Opcode::new("SUB", TargetReg::A, TargetReg::R8(3), 1, 1));
+        map.insert(0x94, Opcode::new("SUB", TargetReg::A, TargetReg::R8(4), 1, 1));
+        map.insert(0x95, Opcode::new("SUB", TargetReg::A, TargetReg::R8(5), 1, 1));
+        map.insert(0x96, Opcode::new("SUB", TargetReg::A, TargetReg::R8(6), 1, 2)); // sub a, [hl]
+        map.insert(0x97, Opcode::new("SUB", TargetReg::A, TargetReg::R8(7), 1, 1));
+
+        // sub a, imm8
+        map.insert(0xd6, Opcode::new("SUB", TargetReg::A, TargetReg::Imm8, 2, 2));
+
+        // xor a, r8
+        map.insert(0xa8, Opcode::new("XOR", TargetReg::A, TargetReg::R8(0), 1, 1));
+        map.insert(0xa9, Opcode::new("XOR", TargetReg::A, TargetReg::R8(1), 1, 1));
+        map.insert(0xaa, Opcode::new("XOR", TargetReg::A, TargetReg::R8(2), 1, 1));
+        map.insert(0xab, Opcode::new("XOR", TargetReg::A, TargetReg::R8(3), 1, 1));
+        map.insert(0xac, Opcode::new("XOR", TargetReg::A, TargetReg::R8(4), 1, 1));
+        map.insert(0xad, Opcode::new("XOR", TargetReg::A, TargetReg::R8(5), 1, 1));
+        map.insert(0xae, Opcode::new("XOR", TargetReg::A, TargetReg::R8(6), 1, 2)); // xor a, [hl]
+        map.insert(0xaf, Opcode::new("XOR", TargetReg::A, TargetReg::R8(7), 1, 1));
+
+        // xor a, n8
+        map.insert(0xee, Opcode::new("XOR", TargetReg::A, TargetReg::Imm8, 2, 2));
 
         map
     };

@@ -26,6 +26,6 @@ impl Bus {
     pub fn mem_write_u16(&mut self, addr: u16, data: u16) {
         let bytes = data.to_le_bytes();
         self.mem_write(addr, bytes[0]);
-        self.mem_write(addr+1, bytes[1]);
+        self.mem_write(addr + 1, bytes[1]);
     }
 }
