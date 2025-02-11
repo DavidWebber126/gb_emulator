@@ -707,8 +707,28 @@ lazy_static! {
         map.insert(0x2b, Opcode::new("SRA", TargetReg::R8(3), TargetReg::None, 2, 2));
         map.insert(0x2c, Opcode::new("SRA", TargetReg::R8(4), TargetReg::None, 2, 2));
         map.insert(0x2d, Opcode::new("SRA", TargetReg::R8(5), TargetReg::None, 2, 2));
-        map.insert(0x2e, Opcode::new("SRA", TargetReg::R8(6), TargetReg::None, 2, 4));
+        map.insert(0x2e, Opcode::new("SRA", TargetReg::R8(6), TargetReg::None, 2, 4)); // sra [hl]
         map.insert(0x2f, Opcode::new("SRA", TargetReg::R8(7), TargetReg::None, 2, 2));
+
+        // srl r8
+        map.insert(0x38, Opcode::new("SRL", TargetReg::R8(0), TargetReg::None, 2, 2));
+        map.insert(0x39, Opcode::new("SRL", TargetReg::R8(1), TargetReg::None, 2, 2));
+        map.insert(0x3a, Opcode::new("SRL", TargetReg::R8(2), TargetReg::None, 2, 2));
+        map.insert(0x3b, Opcode::new("SRL", TargetReg::R8(3), TargetReg::None, 2, 2));
+        map.insert(0x3c, Opcode::new("SRL", TargetReg::R8(4), TargetReg::None, 2, 2));
+        map.insert(0x3d, Opcode::new("SRL", TargetReg::R8(5), TargetReg::None, 2, 2));
+        map.insert(0x3e, Opcode::new("SRL", TargetReg::R8(6), TargetReg::None, 2, 4)); // srl [hl]
+        map.insert(0x3f, Opcode::new("SRL", TargetReg::R8(7), TargetReg::None, 2, 2));
+
+        // swap r8
+        map.insert(0x30, Opcode::new("SWAP", TargetReg::R8(0), TargetReg::None, 2, 2));
+        map.insert(0x31, Opcode::new("SWAP", TargetReg::R8(1), TargetReg::None, 2, 2));
+        map.insert(0x32, Opcode::new("SWAP", TargetReg::R8(2), TargetReg::None, 2, 2));
+        map.insert(0x33, Opcode::new("SWAP", TargetReg::R8(3), TargetReg::None, 2, 2));
+        map.insert(0x34, Opcode::new("SWAP", TargetReg::R8(4), TargetReg::None, 2, 2));
+        map.insert(0x35, Opcode::new("SWAP", TargetReg::R8(5), TargetReg::None, 2, 2));
+        map.insert(0x36, Opcode::new("SWAP", TargetReg::R8(6), TargetReg::None, 2, 4)); // swap [hl]
+        map.insert(0x37, Opcode::new("SWAP", TargetReg::R8(7), TargetReg::None, 2, 2));
 
         map
     };

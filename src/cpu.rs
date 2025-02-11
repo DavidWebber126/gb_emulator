@@ -344,7 +344,7 @@ impl Cpu {
                 val += carry as u8;
                 self.reg_write(&opcode.reg1, val as u16);
                 self.flags.set(FlagsReg::zero, val == 0);
-                self.flags.set(FlagsReg::carry, left_bit);          
+                self.flags.set(FlagsReg::carry, left_bit);
             }
             // rlc r8
             0x00..=0x07 => {
@@ -395,11 +395,40 @@ impl Cpu {
                 self.flags.set(FlagsReg::carry, left_bit);
             }
             // sra r8
-            0x28..=0x2f => 
-            _ => panic!(
-                "Prefixed opcode: {:02X} '{}' is not implemented yet",
-                byte, opcode.name
-            ),
+            0x28..=0x2f => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let right_bit = val & 0x01 != 0;
+                let left_bit = val & 0x80;
+                val >>= 1;
+                val |= left_bit;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::subtraction, false);
+                self.flags.set(FlagsReg::half_carry, false);
+                self.flags.set(FlagsReg::carry, right_bit);
+            }
+            // srl r8
+            0x38..=0x3f => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let right_bit = val & 0x01 != 0;
+                val >>= 1;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::subtraction, false);
+                self.flags.set(FlagsReg::half_carry, false);
+                self.flags.set(FlagsReg::carry, right_bit);
+            }
+            // swap r8
+            0x30..=0x37 => {
+                let val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let lo = val & 0x0f;
+                let hi = val & 0xf0;
+                self.reg_write(&opcode.reg1, ((lo << 4) + (hi >> 4)) as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::subtraction, false);
+                self.flags.set(FlagsReg::half_carry, false);
+                self.flags.set(FlagsReg::carry, false);
+            }
         };
         Ok(())
     }
