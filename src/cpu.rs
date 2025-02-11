@@ -119,6 +119,7 @@ impl Cpu {
             TargetReg::R16mem(reg) => Some(self.r16mem_read(*reg)),
             TargetReg::Cond(code) => Some(*code as u16),
             TargetReg::Tgt3(reg) => Some(self.tgt3_read(*reg)),
+            TargetReg::B3(bit) => Some(*bit as u16),
             TargetReg::A => Some(self.a as u16),
             TargetReg::SP => Some(self.stack_pointer),
             TargetReg::C => Some(self.bus.mem_read(0xff00 + self.c as u16) as u16),
@@ -288,22 +289,119 @@ impl Cpu {
     // Main CPU loop. Fetch instruction, decode and execute.
     pub fn run(&mut self) {
         loop {
-            let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_OP_CODES;
+            let (result, _cycles, bytes) = if self.next_op_prefixed {
+                let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
+                let opcode_num = self.bus.mem_read(self.program_counter);
+                let opcode = opcodes.get(&opcode_num).unwrap();
 
-            let opcode_num = self.bus.mem_read(self.program_counter);
-            let opcode = opcodes.get(&opcode_num).unwrap();
-
-            if self.next_op_prefixed {
-                todo!("Prefixed Opcodes")
+                (
+                    self.prefixed_opcodes(opcode_num, opcode),
+                    opcode.cycles,
+                    opcode.bytes,
+                )
             } else {
-                if self.non_prefixed_opcodes(opcode_num, opcode).is_err() {
-                    break;
-                }
+                let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_OP_CODES;
+                let opcode_num = self.bus.mem_read(self.program_counter);
+                let opcode = opcodes.get(&opcode_num).unwrap();
+
+                (
+                    self.non_prefixed_opcodes(opcode_num, opcode),
+                    opcode.cycles,
+                    opcode.bytes,
+                )
+            };
+
+            if result.is_err() {
+                break;
             }
 
-            self.program_counter = self.program_counter.wrapping_add(opcode.bytes);
-            //println!("PC now: {}. Num bytes {}", self.program_counter, opcode.bytes);
+            self.program_counter = self.program_counter.wrapping_add(bytes);
         }
+    }
+
+    fn prefixed_opcodes(&mut self, byte: u8, opcode: &opcodes::Opcode) -> Result<(), &str> {
+        match byte {
+            // bit u3, r8
+            0x40..=0x7f => {
+                let bit = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+                self.flags.set(FlagsReg::zero, ((val >> bit) & 0b1) == 0);
+                self.flags.set(FlagsReg::subtraction, false);
+                self.flags.set(FlagsReg::half_carry, true);
+            }
+            // res u3, r8
+            0x80..=0xbf => {
+                let bit = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+                self.reg_write(&opcode.reg2, (val & !(0x01 << bit)) as u16);
+            }
+            // rl r8
+            0x10..=0x17 => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let left_bit = (val & 0x80) != 0x00;
+                let carry = self.flags.contains(FlagsReg::carry);
+                val <<= 1;
+                val += carry as u8;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::carry, left_bit);          
+            }
+            // rlc r8
+            0x00..=0x07 => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let left_bit = (val & 0x80) != 0x00;
+                val <<= 1;
+                val += left_bit as u8;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::carry, left_bit);
+            }
+            // rr r8
+            0x18..=0x1f => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let right_bit = (val & 0x01) != 0;
+                let carry = self.flags.contains(FlagsReg::carry);
+                val >>= 1;
+                val += (carry as u8) << 7;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::carry, right_bit);
+            }
+            // rrc r8
+            0x08..=0x0f => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let right_bit = (val & 0x01) != 0;
+                val >>= 1;
+                val += (right_bit as u8) << 7;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::carry, right_bit);
+            }
+            // set u3, r8
+            0xc0..=0xff => {
+                let bit = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+                self.reg_write(&opcode.reg2, (val | (0x1 << bit)) as u16);
+            }
+            // sla r8
+            0x20..=0x27 => {
+                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let left_bit = val & 0x80 != 0;
+                val <<= 1;
+                self.reg_write(&opcode.reg1, val as u16);
+                self.flags.set(FlagsReg::zero, val == 0);
+                self.flags.set(FlagsReg::subtraction, false);
+                self.flags.set(FlagsReg::half_carry, false);
+                self.flags.set(FlagsReg::carry, left_bit);
+            }
+            // sra r8
+            0x28..=0x2f => 
+            _ => panic!(
+                "Prefixed opcode: {:02X} '{}' is not implemented yet",
+                byte, opcode.name
+            ),
+        };
+        Ok(())
     }
 
     fn non_prefixed_opcodes(&mut self, byte: u8, opcode: &opcodes::Opcode) -> Result<(), &str> {
@@ -705,9 +803,9 @@ mod tests {
     use rand::prelude::*;
     use std::vec;
 
-    fn setup(program: Vec<u8>) -> CPU {
+    fn setup(program: Vec<u8>) -> Cpu {
         let bus = Bus::new(program);
-        let cpu = CPU::new(bus);
+        let cpu = Cpu::new(bus);
         cpu
     }
 
