@@ -46,7 +46,7 @@ impl Cpu {
             h: 0,
             l: 0,
             stack_pointer: 0xfffe,
-            program_counter: 0,
+            program_counter: 0x0100,
             ime: false,
             bus,
             next_op_prefixed: false,
@@ -133,7 +133,7 @@ impl Cpu {
         }
     }
 
-    fn r8_read(&self, reg: u8) -> u8 {
+    fn r8_read(&mut self, reg: u8) -> u8 {
         match reg {
             0 => self.b,
             1 => self.c,
