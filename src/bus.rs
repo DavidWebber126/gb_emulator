@@ -1,15 +1,15 @@
-use core::panic;
+use crate::cartridge::Cartridge;
 
 pub struct Bus {
     pub cpu_ram: [u8; 0x2000], // not sure size of cpu ram
-    pub rom: Vec<u8>,
+    pub cartridge: Cartridge,
 }
 
 impl Bus {
-    pub fn new(prg_rom: Vec<u8>) -> Self {
+    pub fn new(cartridge: Cartridge) -> Self {
         Bus {
             cpu_ram: [0; 0x2000],
-            rom: prg_rom,
+            cartridge,
         }
     }
 
@@ -20,7 +20,7 @@ impl Bus {
     pub fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
             // Cartridge ROM bank 0
-            0x0000..=0x3FFF => self.rom[addr as usize],
+            0x0000..=0x3FFF => self.cartridge.read_rom(addr as usize),
             // Cartridge ROM bank 01-NN. May be mapped
             0x4000..=0x7FFF => self.bank_read(addr),
             // VRAM

@@ -4,10 +4,13 @@ mod cpu;
 mod opcodes;
 
 use bus::Bus;
+use cartridge::Cartridge;
 use cpu::Cpu;
 
 fn main() {
-    let bus = Bus::new(Vec::new());
+    let bytes: Vec<u8> = std::fs::read("roms/tetris.gb").unwrap();
+    let cartridge = Cartridge::new(&bytes).unwrap();
+    let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);
     cpu.run();
 }

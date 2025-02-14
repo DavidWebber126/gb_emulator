@@ -828,12 +828,15 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
+    use crate::cartridge::Cartridge;
+
     use super::*;
     use rand::prelude::*;
     use std::vec;
 
     fn setup(program: Vec<u8>) -> Cpu {
-        let bus = Bus::new(program);
+        let cartridge = Cartridge::new(&program).unwrap();
+        let bus = Bus::new(cartridge);
         let cpu = Cpu::new(bus);
         cpu
     }
