@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::bus::Bus;
 use crate::opcodes::{self, TargetReg};
+use crate::trace;
 
 bitflags! {
     #[derive(PartialEq, Debug, Clone)]
@@ -19,19 +20,19 @@ bitflags! {
 }
 
 pub struct Cpu {
-    a: u8,
-    b: u8,
-    c: u8,
-    d: u8,
-    e: u8,
-    flags: FlagsReg,
-    h: u8,
-    l: u8,
-    stack_pointer: u16,
-    program_counter: u16,
-    ime: bool,
-    bus: Bus,
-    next_op_prefixed: bool,
+    pub a: u8,
+    pub b: u8,
+    pub c: u8,
+    pub d: u8,
+    pub e: u8,
+    pub flags: FlagsReg,
+    pub h: u8,
+    pub l: u8,
+    pub stack_pointer: u16,
+    pub program_counter: u16,
+    pub ime: bool,
+    pub bus: Bus,
+    pub prefixed_mode: bool,
 }
 
 impl Cpu {
@@ -49,43 +50,43 @@ impl Cpu {
             program_counter: 0x0100,
             ime: false,
             bus,
-            next_op_prefixed: false,
+            prefixed_mode: false,
         }
     }
 
-    fn get_bc(&self) -> u16 {
+    pub fn get_bc(&self) -> u16 {
         (self.b as u16) << 8 | self.c as u16
     }
 
-    fn set_bc(&mut self, value: u16) {
+    pub fn set_bc(&mut self, value: u16) {
         self.c = (value & 0xff) as u8;
         self.b = (value >> 8) as u8;
     }
 
-    fn get_de(&self) -> u16 {
+    pub fn get_de(&self) -> u16 {
         (self.d as u16) << 8 | self.e as u16
     }
 
-    fn set_de(&mut self, value: u16) {
+    pub fn set_de(&mut self, value: u16) {
         self.e = (value & 0xff) as u8;
         self.d = (value >> 8) as u8;
     }
 
-    fn get_hl(&self) -> u16 {
+    pub fn get_hl(&self) -> u16 {
         (self.h as u16) << 8 | self.l as u16
     }
 
-    fn set_hl(&mut self, value: u16) {
+    pub fn set_hl(&mut self, value: u16) {
         self.l = (value & 0xff) as u8;
         self.h = (value >> 8) as u8;
     }
 
-    fn set_af(&mut self, value: u16) {
+    pub fn set_af(&mut self, value: u16) {
         self.a = (value & 0xff) as u8;
         self.flags = FlagsReg::from_bits_retain((value >> 8) as u8);
     }
 
-    fn get_af(&self) -> u16 {
+    pub fn get_af(&self) -> u16 {
         (self.a as u16) << 8 | self.flags.bits() as u16
     }
 
@@ -287,9 +288,14 @@ impl Cpu {
     }
 
     // Main CPU loop. Fetch instruction, decode and execute.
-    pub fn run(&mut self) {
+    pub fn run_with_callback<F>(&mut self, mut callback: F)
+    where
+        F: FnMut(&mut Cpu),
+    {
         loop {
-            let (result, _cycles, bytes) = if self.next_op_prefixed {
+            callback(self);
+
+            let (result, _cycles, bytes) = if self.prefixed_mode {
                 let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
                 let opcode_num = self.bus.mem_read(self.program_counter);
                 let opcode = opcodes.get(&opcode_num).unwrap();
@@ -317,6 +323,16 @@ impl Cpu {
 
             self.program_counter = self.program_counter.wrapping_add(bytes);
         }
+    }
+
+    pub fn run(&mut self) {
+        self.run_with_callback(|_| {});
+    }
+
+    pub fn run_with_trace(&mut self) {
+        self.run_with_callback(|cpu| {
+            trace::trace_cpu(cpu);
+        });
     }
 
     fn prefixed_opcodes(&mut self, byte: u8, opcode: &opcodes::Opcode) -> Result<(), &str> {
@@ -532,7 +548,7 @@ impl Cpu {
             // 8 bit DEC
             0x05 | 0x0d | 0x15 | 0x1d | 0x25 | 0x2d | 0x35 | 0x3d => {
                 let mut val = self.reg_read(&opcode.reg1).unwrap();
-                let half_carry = ((val & 0x0f) - 1) & 0x10 > 0;
+                let half_carry = ((val & 0x0f).wrapping_sub(1)) & 0x10 > 0;
                 val = val.wrapping_sub(1);
                 self.reg_write(&opcode.reg1, val);
                 self.flags.set(FlagsReg::zero, val == 0);

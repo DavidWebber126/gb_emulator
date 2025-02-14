@@ -1,0 +1,31 @@
+PC: 0100    OP: 00              AF: 0000, BC: 0000, DE: 0000, HL: 0000, SP: FFFE CB: false
+PC: 0101    OP: C3 50 01        AF: 0000, BC: 0000, DE: 0000, HL: 0000, SP: FFFE CB: false
+PC: 0150    OP: C3 0C 02        AF: 0000, BC: 0000, DE: 0000, HL: 0000, SP: FFFE CB: false
+PC: 020C    OP: AF              AF: 0000, BC: 0000, DE: 0000, HL: 0000, SP: FFFE CB: false
+PC: 020D    OP: 21 FF DF        AF: 0080, BC: 0000, DE: 0000, HL: 0000, SP: FFFE CB: false
+PC: 0210    OP: 0E 10           AF: 0080, BC: 0000, DE: 0000, HL: DFFF, SP: FFFE CB: false
+PC: 0212    OP: 06 00           AF: 0080, BC: 0010, DE: 0000, HL: DFFF, SP: FFFE CB: false
+PC: 0214    OP: 32              AF: 0080, BC: 0010, DE: 0000, HL: DFFF, SP: FFFE CB: false
+PC: 0215    OP: 05              AF: 0080, BC: 0010, DE: 0000, HL: DFFE, SP: FFFE CB: false
+PC: 0216    OP: 20 FC           AF: 0060, BC: FF10, DE: 0000, HL: DFFE, SP: FFFE CB: false
+PC: 0312    OP: 1D              AF: 0060, BC: FF10, DE: 0000, HL: DFFE, SP: FFFE CB: false
+PC: 0313    OP: 16 1F           AF: 0060, BC: FF10, DE: 00FF, HL: DFFE, SP: FFFE CB: false
+PC: 0315    OP: 1F              AF: 0060, BC: FF10, DE: 1FFF, HL: DFFE, SP: FFFE CB: false
+PC: 0316    OP: 1F              AF: 0000, BC: FF10, DE: 1FFF, HL: DFFE, SP: FFFE CB: false
+PC: 0317    OP: 25              AF: 0000, BC: FF10, DE: 1FFF, HL: DFFE, SP: FFFE CB: false
+PC: 0318    OP: 15              AF: 0040, BC: FF10, DE: 1FFF, HL: DEFE, SP: FFFE CB: false
+PC: 0319    OP: B0              AF: 0040, BC: FF10, DE: 1EFF, HL: DEFE, SP: FFFE CB: false
+PC: 031A    OP: 14              AF: FF00, BC: FF10, DE: 1EFF, HL: DEFE, SP: FFFE CB: false
+PC: 031B    OP: 7B              AF: FF00, BC: FF10, DE: 1FFF, HL: DEFE, SP: FFFE CB: false
+PC: 031C    OP: 15              AF: FF00, BC: FF10, DE: 1FFF, HL: DEFE, SP: FFFE CB: false
+PC: 031D    OP: BF              AF: FF40, BC: FF10, DE: 1EFF, HL: DEFE, SP: FFFE CB: false
+PC: 031E    OP: 15              AF: FF40, BC: FF10, DE: 1EFF, HL: DEFE, SP: FFFE CB: false
+PC: 031F    OP: 29 16           AF: FF40, BC: FF10, DE: 1DFF, HL: DEFE, SP: FFFE CB: false
+PC: 0321    OP: 7A              AF: FF30, BC: FF10, DE: 1DFF, HL: BDFC, SP: FFFE CB: false
+PC: 0322    OP: 16 EB           AF: 1D30, BC: FF10, DE: 1DFF, HL: BDFC, SP: FFFE CB: false
+PC: 0324    OP: 16 13           AF: 1D30, BC: FF10, DE: EBFF, HL: BDFC, SP: FFFE CB: false
+PC: 0326    OP: 19 77           AF: 1D30, BC: FF10, DE: 13FF, HL: BDFC, SP: FFFE CB: false
+PC: 0328    OP: 06 2C           AF: 1D20, BC: FF10, DE: 13FF, HL: D1FB, SP: FFFE CB: false
+PC: 032A    OP: 07              AF: 1D20, BC: 2C10, DE: 13FF, HL: D1FB, SP: FFFE CB: false
+PC: 032B    OP: 25              AF: 3A00, BC: 2C10, DE: 13FF, HL: D1FB, SP: FFFE CB: false
+PC: 032C    OP: 08 E4 08        AF: 3A40, BC: 2C10, DE: 13FF, HL: D0FB, SP: FFFE CB: false

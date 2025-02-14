@@ -2,6 +2,7 @@ mod bus;
 mod cartridge;
 mod cpu;
 mod opcodes;
+mod trace;
 
 use bus::Bus;
 use cartridge::Cartridge;
@@ -12,5 +13,5 @@ fn main() {
     let cartridge = Cartridge::new(&bytes).unwrap();
     let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);
-    cpu.run();
+    cpu.run_with_trace();
 }
