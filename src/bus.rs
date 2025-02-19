@@ -1,8 +1,27 @@
+use bitflags::bitflags;
+
 use crate::cartridge::Cartridge;
+
+bitflags! {
+    #[derive(PartialEq, Debug, Clone)]
+    pub struct InterruptEnable: u8 {
+        // VBlank Enable
+        const vblank = 0b0000_0001;
+        // LCD Enable
+        const lcd = 0b0000_0010;
+        // Timer Enable
+        const timer = 0b0000_0100;
+        // Serial Enable
+        const serial = 0b0000_1000;
+        // Joypad Enable
+        const joypad = 0b0001_0000;
+    }
+}
 
 pub struct Bus {
     pub cpu_ram: [u8; 0x2000], // not sure size of cpu ram
     pub cartridge: Cartridge,
+    pub interrupt_enable: InterruptEnable, // Address 0xFFFF enables interrupts
 }
 
 impl Bus {
@@ -10,7 +29,28 @@ impl Bus {
         Bus {
             cpu_ram: [0; 0x2000],
             cartridge,
+            interrupt_enable: InterruptEnable::empty(),
         }
+    }
+
+    pub fn vblank_enabled(&self) -> bool {
+        self.interrupt_enable.contains(InterruptEnable::vblank)
+    }
+
+    pub fn lcd_enabled(&self) -> bool {
+        self.interrupt_enable.contains(InterruptEnable::lcd)
+    }
+
+    pub fn timer_enabled(&self) -> bool {
+        self.interrupt_enable.contains(InterruptEnable::timer)
+    }
+
+    pub fn serial_enabled(&self) -> bool {
+        self.interrupt_enable.contains(InterruptEnable::serial)
+    }
+
+    pub fn joypad_enabled(&self) -> bool {
+        self.interrupt_enable.contains(InterruptEnable::joypad)
     }
 
     fn bank_read(&mut self, addr: u16) -> u8 {
@@ -63,9 +103,7 @@ impl Bus {
                 todo!()
             }
             // Interrupt Enable
-            0xFFFF => {
-                todo!()
-            }
+            0xFFFF => self.interrupt_enable.bits(),
         }
     }
 
@@ -73,7 +111,8 @@ impl Bus {
         match addr {
             // Cartridge ROM bank 0
             0x0000..=0x3FFF => {
-                panic!("Cannot write to Cartridge ROM bank 0 (0x0000 - 0x3FFF) with address {:04X} and value {:04X}", addr, data)
+                //self.cartridge.write_rom(addr as usize, data);
+                //panic!("Cannot write to Cartridge ROM bank 0 (0x0000 - 0x3FFF) with address {:04X} and value {:04X}", addr, data)
             }
             // Cartridge ROM bank 01-NN. May be mapped
             0x4000..=0x7FFF => {
@@ -118,7 +157,7 @@ impl Bus {
             }
             // Interrupt Enable
             0xFFFF => {
-                todo!()
+                self.interrupt_enable = InterruptEnable::from_bits_retain(data);
             }
         }
     }

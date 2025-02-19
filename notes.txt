@@ -1,8 +1,3 @@
 Notes:
-- ld hl, sp + imm8 (0xf8) needs to check for overflow in setting flags. Maybe put into seperate instruction
-since it is only LD op to change the flags.
-- Need to finish LD sp imm8 opcode
-- Implement sub_u8
-- Put in prefixed opcodes
 - EI is set at the next instruction after EI. I'm ignoring that for now and setting the flag immediately
-- Better testing
+

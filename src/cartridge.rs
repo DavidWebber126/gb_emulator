@@ -1,4 +1,4 @@
-const ROM_PAGE_SIZE: usize = 32 * 2 ^ 10;
+const ROM_PAGE_SIZE: usize = 32 * (2 ^ 10);
 const KIB: usize = 2 ^ 10;
 
 pub struct Cartridge {
@@ -41,6 +41,10 @@ impl Cartridge {
 
     pub fn read_rom(&mut self, addr: usize) -> u8 {
         self.cartridge_rom[addr]
+    }
+
+    pub fn write_rom(&mut self, addr: usize, data: u8) {
+        self.cartridge_rom[addr] = data;
     }
 }
 
