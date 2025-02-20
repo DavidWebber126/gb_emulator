@@ -4,7 +4,7 @@ use crate::cartridge::Cartridge;
 
 bitflags! {
     #[derive(PartialEq, Debug, Clone)]
-    pub struct InterruptEnable: u8 {
+    pub struct Interrupt: u8 {
         // VBlank Enable
         const vblank = 0b0000_0001;
         // LCD Enable
@@ -20,37 +20,61 @@ bitflags! {
 
 pub struct Bus {
     pub cpu_ram: [u8; 0x2000], // not sure size of cpu ram
+    pub hram: [u8; 0x7F],      // CPU high ram 0xFF80 - 0xFFFE
     pub cartridge: Cartridge,
-    pub interrupt_enable: InterruptEnable, // Address 0xFFFF enables interrupts
+    pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
+    pub interrupt_flag: Interrupt,
 }
 
 impl Bus {
     pub fn new(cartridge: Cartridge) -> Self {
         Bus {
             cpu_ram: [0; 0x2000],
+            hram: [0; 0x7F],
             cartridge,
-            interrupt_enable: InterruptEnable::empty(),
+            interrupt_enable: Interrupt::empty(),
+            interrupt_flag: Interrupt::empty(),
         }
     }
 
     pub fn vblank_enabled(&self) -> bool {
-        self.interrupt_enable.contains(InterruptEnable::vblank)
+        self.interrupt_enable.contains(Interrupt::vblank)
+    }
+
+    pub fn vblank_flag(&self) -> bool {
+        self.interrupt_flag.contains(Interrupt::vblank)
     }
 
     pub fn lcd_enabled(&self) -> bool {
-        self.interrupt_enable.contains(InterruptEnable::lcd)
+        self.interrupt_enable.contains(Interrupt::lcd)
+    }
+
+    pub fn lcd_flag(&self) -> bool {
+        self.interrupt_flag.contains(Interrupt::lcd)
     }
 
     pub fn timer_enabled(&self) -> bool {
-        self.interrupt_enable.contains(InterruptEnable::timer)
+        self.interrupt_enable.contains(Interrupt::timer)
+    }
+
+    pub fn timer_flag(&self) -> bool {
+        self.interrupt_flag.contains(Interrupt::timer)
     }
 
     pub fn serial_enabled(&self) -> bool {
-        self.interrupt_enable.contains(InterruptEnable::serial)
+        self.interrupt_enable.contains(Interrupt::serial)
+    }
+
+    pub fn serial_flag(&self) -> bool {
+        self.interrupt_flag.contains(Interrupt::serial)
     }
 
     pub fn joypad_enabled(&self) -> bool {
-        self.interrupt_enable.contains(InterruptEnable::joypad)
+        self.interrupt_enable.contains(Interrupt::joypad)
+    }
+
+    pub fn joypad_flag(&self) -> bool {
+        self.interrupt_flag.contains(Interrupt::joypad)
     }
 
     fn bank_read(&mut self, addr: u16) -> u8 {
@@ -95,15 +119,26 @@ impl Bus {
                 0
             }
             // IO Registers 0xFF00 - 0xFF7F
-            0xFF00..=0xFF7F => {
+            // Joypad Input
+            0xFF00 => todo!("Implement Joypad input"),
+            // Serial transfer
+            0xFF01 | 0xFF02 => todo!("Implement serial transfer"),
+            // Timer and divider
+            0xFF04..=0xFF07 => todo!("Implement timer and divider"),
+            // Interrupts
+            0xFF0F => self.interrupt_flag.bits(),
+            // Rest tbd
+            0xFF10..=0xFF7F => {
                 todo!()
             }
             // High RAM
             0xFF80..=0xFFFE => {
-                todo!()
+                let mirrored_addr = addr - 0xff80;
+                self.hram[mirrored_addr as usize]
             }
             // Interrupt Enable
             0xFFFF => self.interrupt_enable.bits(),
+            _ => panic!("Address {} not used in memory map", addr),
         }
     }
 
@@ -148,17 +183,30 @@ impl Bus {
                 // Does nothing on writes
             }
             // IO Registers 0xFF00 - 0xFF7F
-            0xFF00..=0xFF7F => {
-                todo!()
+            // Joypad Input
+            0xFF00 => todo!("Implement Joypad input"),
+            // Serial transfer
+            0xFF01 | 0xFF02 => {}
+            // Timer and divider
+            0xFF04..=0xFF07 => todo!("Implement timer and divider"),
+            // Interrupts
+            0xFF0F => {
+                self.interrupt_flag = Interrupt::from_bits_retain(data);
+            }
+            // Rest tbd
+            0xFF10..=0xFF7F => {
+                //todo!("addr {:04X}", addr)
             }
             // High RAM
             0xFF80..=0xFFFE => {
-                todo!()
+                let mirrored_addr = addr - 0xff80;
+                self.hram[mirrored_addr as usize] = data;
             }
             // Interrupt Enable
             0xFFFF => {
-                self.interrupt_enable = InterruptEnable::from_bits_retain(data);
+                self.interrupt_enable = Interrupt::from_bits_retain(data);
             }
+            _ => panic!("Address {} not used in memory map", addr),
         }
     }
 

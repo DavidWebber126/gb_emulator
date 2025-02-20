@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 use std::collections::HashMap;
 
-use crate::bus::{Bus, InterruptEnable};
+use crate::bus::{Bus, Interrupt};
 use crate::opcodes::{self, Opcode, TargetReg};
 use crate::trace;
 
@@ -19,22 +19,6 @@ bitflags! {
     }
 }
 
-bitflags! {
-    #[derive(PartialEq, Debug, Clone)]
-    pub struct InterruptFlag: u8 {
-        // VBlank Flag
-        const vblank = 0b0000_0001;
-        // LCD Flag
-        const lcd = 0b0000_0010;
-        // Timer Flag
-        const timer = 0b0000_0100;
-        // Serial Flag
-        const serial = 0b0000_1000;
-        // Joypad Flag
-        const joypad = 0b0001_0000;
-    }
-}
-
 pub struct Cpu {
     pub a: u8,
     pub b: u8,
@@ -47,7 +31,6 @@ pub struct Cpu {
     pub stack_pointer: u16,
     pub program_counter: u16,
     pub ime: bool,
-    pub interrupt_flag: InterruptFlag,
     pub bus: Bus,
     pub prefixed_mode: bool,
 }
@@ -66,7 +49,6 @@ impl Cpu {
             stack_pointer: 0xfffe,
             program_counter: 0x0100,
             ime: false,
-            interrupt_flag: InterruptFlag::empty(),
             bus,
             prefixed_mode: false,
         }
@@ -241,7 +223,7 @@ impl Cpu {
             }
             TargetReg::Imm8 => {
                 let addr = self.bus.mem_read(self.program_counter + 1);
-                self.bus.mem_write_u16(0xff00 + addr as u16, data);
+                self.bus.mem_write(0xff00 + addr as u16, data as u8);
             }
             TargetReg::Imm16 => {
                 let addr = self.bus.mem_read_u16(self.program_counter + 1);
@@ -311,29 +293,38 @@ impl Cpu {
 
     fn interrupt_check(&mut self) {
         // Interrupt is serviced is IME is set, bit is set in both IE and IF flags
-        let vblank_interrupt = self.ime
-            && self.interrupt_flag.contains(InterruptFlag::vblank)
-            && self.bus.vblank_enabled();
-
-        let lcd_interrupt = self.ime 
-            && self.interrupt_flag.contains(InterruptFlag::lcd) 
-            && self.bus.lcd_enabled();
-        let timer_interrupt = self.ime
-            && self.interrupt_flag.contains(InterruptFlag::timer)
-            && self.bus.timer_enabled();
-        let serial_interrupt = self.ime
-            && self.interrupt_flag.contains(InterruptFlag::serial)
-            && self.bus.serial_enabled();
-        let joypad_interrupt = self.ime
-            && self.interrupt_flag.contains(InterruptFlag::joypad)
-            && self.bus.joypad_enabled();
+        let vblank_interrupt = self.ime && self.bus.vblank_flag() && self.bus.vblank_enabled();
+        let lcd_interrupt = self.ime && self.bus.lcd_flag() && self.bus.lcd_enabled();
+        let timer_interrupt = self.ime && self.bus.timer_flag() && self.bus.timer_enabled();
+        let serial_interrupt = self.ime && self.bus.serial_flag() && self.bus.serial_enabled();
+        let joypad_interrupt = self.ime && self.bus.joypad_flag() && self.bus.joypad_enabled();
 
         // Vblank has highest priority, Joypad has lowest priority. Only handle one interrupt at a time
+        // Turn off interrupts then handle the current interrupt by priority
+        if vblank_interrupt
+            || lcd_interrupt
+            || timer_interrupt
+            || serial_interrupt
+            || joypad_interrupt
+        {
+            self.ime = false;
+            self.push_u16_to_stack(self.program_counter);
+        }
         if vblank_interrupt {
+            self.bus.interrupt_flag.set(Interrupt::vblank, false);
+            self.program_counter = 0x0040;
         } else if lcd_interrupt {
+            self.bus.interrupt_flag.set(Interrupt::lcd, false);
+            self.program_counter = 0x0048;
         } else if timer_interrupt {
+            self.bus.interrupt_flag.set(Interrupt::timer, false);
+            self.program_counter = 0x0050;
         } else if serial_interrupt {
+            self.bus.interrupt_flag.set(Interrupt::serial, false);
+            self.program_counter = 0x0058;
         } else if joypad_interrupt {
+            self.bus.interrupt_flag.set(Interrupt::joypad, false);
+            self.program_counter = 0x0060;
         }
     }
 
