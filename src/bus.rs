@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 
 use crate::cartridge::Cartridge;
+use crate::ppu::Ppu;
 
 bitflags! {
     #[derive(PartialEq, Debug, Clone)]
@@ -24,6 +25,7 @@ pub struct Bus {
     pub cartridge: Cartridge,
     pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
     pub interrupt_flag: Interrupt,
+    pub ppu: Ppu,
 }
 
 impl Bus {
@@ -34,6 +36,7 @@ impl Bus {
             cartridge,
             interrupt_enable: Interrupt::empty(),
             interrupt_flag: Interrupt::empty(),
+            ppu: Ppu::new(),
         }
     }
 
@@ -88,9 +91,7 @@ impl Bus {
             // Cartridge ROM bank 01-NN. May be mapped
             0x4000..=0x7FFF => self.bank_read(addr),
             // VRAM
-            0x8000..=0x9FFF => {
-                todo!()
-            }
+            0x8000..=0x9FFF => self.ppu.read_vram(addr),
             // Cartridge RAM (not always present)
             0xA000..=0xBFFF => {
                 todo!()
@@ -109,9 +110,7 @@ impl Bus {
                 )
             }
             // OAM RAM
-            0xFE00..=0xFE9F => {
-                todo!()
-            }
+            0xFE00..=0xFE9F => self.ppu.oam_read(addr),
             // Not usable
             0xFEA0..=0xFEFF => {
                 //panic!("Address {:04X} is in unusable space 0xFEA0 - 0xFEFF", addr)
@@ -127,6 +126,7 @@ impl Bus {
             0xFF04..=0xFF07 => todo!("Implement timer and divider"),
             // Interrupts
             0xFF0F => self.interrupt_flag.bits(),
+            0xFF40 => self.ppu.read_ctrl(),
             // Rest tbd
             0xFF10..=0xFF7F => {
                 todo!()
@@ -176,7 +176,7 @@ impl Bus {
             }
             // OAM RAM
             0xFE00..=0xFE9F => {
-                todo!()
+                self.ppu.write_vram(addr, data);
             }
             // Not usable
             0xFEA0..=0xFEFF => {
@@ -193,10 +193,38 @@ impl Bus {
             0xFF0F => {
                 self.interrupt_flag = Interrupt::from_bits_retain(data);
             }
-            // Rest tbd
-            0xFF10..=0xFF7F => {
-                //todo!("addr {:04X}", addr)
-            }
+            // PPU Registers
+            // LCD Control
+            0xFF40 => self.ppu.write_to_ctrl(data),
+            // LCD Status (STAT Register)
+            0xFF41 => self.ppu.write_status(data),
+            // SCY: Scroll Y value
+            0xFF42 => self.ppu.scy = data,
+            // SCX: Scroll X value
+            0xFF43 => self.ppu.scx = data,
+            // LCD Y coordinate is read only
+            0xFF44 => panic!(
+                "LCD Y coordinate is read-only. Addr: {} Data: {}",
+                addr, data
+            ),
+            // LYC
+            0xFF45 => self.ppu.lyc = data,
+            // BGP: BG Palette data
+            0xFF47 => self.ppu.bg_palette = data,
+            // OBP0: OBJ Palette 0
+            0xFF48 => self.ppu.obp0 = data,
+            // OBP1: OBJ Palette 1
+            0xFF49 => self.ppu.obp1 = data,
+            // Window Y position
+            0xFF4A => self.ppu.wy = data,
+            // Window X position
+            0xFF4B => self.ppu.wx = data,
+            // BCPS/BGPI: Background color palette specification
+            0xFF68 => self.ppu.bcps = data,
+            // BCPD/BGPD: Background color palette data
+            0xFF69 => self.ppu.bcpd = data,
+            0xFF6A | 0xFF6B => todo!(),
+
             // High RAM
             0xFF80..=0xFFFE => {
                 let mirrored_addr = addr - 0xff80;
@@ -206,7 +234,7 @@ impl Bus {
             0xFFFF => {
                 self.interrupt_enable = Interrupt::from_bits_retain(data);
             }
-            _ => panic!("Address {} not used in memory map", addr),
+            _ => panic!("Address {:04X} not used in memory map", addr),
         }
     }
 

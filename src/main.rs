@@ -2,6 +2,8 @@ mod bus;
 mod cartridge;
 mod cpu;
 mod opcodes;
+mod ppu;
+mod render;
 mod trace;
 
 use bus::Bus;
