@@ -1,5 +1,8 @@
 use crate::ppu::{Control, Ppu};
 
+pub static GB_PALETTE: [(u8, u8, u8); 4] =
+    [(155, 188, 15), (139, 172, 15), (48, 98, 48), (15, 56, 15)];
+
 pub struct Frame {
     pub data: Vec<u8>,
 }
@@ -29,17 +32,28 @@ impl Frame {
     }
 }
 
-// x,y are screen coordinates i.e 0 <= x < 160 and 0 <= y < 144
-fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> u8 {
-    let x = x % 8; // x coordinate of current tile
-    let y = y % 8; // y coordinate of current tile
-    let tilemap_base = 0x9800 + 0x0400 * (ppu.control.contains(Control::bg_tile_area) as u16);
-    let tile_x = ((ppu.scx / 8).wrapping_add(x as u8)) & 0x1F;
-    let tile_y = (y as u8 + ppu.scy) & 0xFF;
+fn get_win_tile_id(ppu: &Ppu, x: usize, y: usize) -> u8 {
+    // Translate screen x, y coords onto window tile map by subtracting WX/WY
+    let x = x + 7 - ppu.wx as usize; // Plus 7 since WX is corner upper left + 7 pixels for some reason
+    let y = y - ppu.wy as usize;
+    let tilemap_base = 0x9800 + 0x0400 * (ppu.control.contains(Control::window_map_area) as u16);
+    let tile_x = x / 8;
+    let tile_y = y / 8;
     ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16)
 }
 
-fn get_bg_tile_data(ppu: &Ppu, x: usize, y: usize, tile_id: u8) -> u8 {
+// x,y are screen coordinates i.e 0 <= x < 160 and 0 <= y < 144
+fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> u8 {
+    // Translate screen x,y coords onto the tile map by using scroll registers
+    let x = (x + ppu.scx as usize) % 256;
+    let y = (y + ppu.scy as usize) % 256;
+    let tilemap_base = 0x9800 + 0x0400 * (ppu.control.contains(Control::bg_tile_area) as u16);
+    let tile_x = x / 8;
+    let tile_y = y / 8;
+    ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16)
+}
+
+fn get_bg_pixel_id(ppu: &Ppu, x: usize, y: usize, tile_id: u8) -> usize {
     let x = (x % 8) as u16; // x coordinate of current tile
     let y = (y % 8) as u16; // y coordinate of current tile
     let tile_base = if tile_id > 127 {
@@ -47,22 +61,30 @@ fn get_bg_tile_data(ppu: &Ppu, x: usize, y: usize, tile_id: u8) -> u8 {
     } else {
         0x8000
             + 16 * (tile_id as u16)
-            + 0x1000 * (ppu.control.contains(Control::bg_tile_mode) as u16)
+            + 0x1000 * (ppu.control.contains(Control::bg_win_mode) as u16)
     };
-    let lo = ppu.read_vram(tile_base + 2 * y);
-    let hi = ppu.read_vram(tile_base + 2 * y + 1);
-    (lo & (1 << x) > 0) as u8 + 2 * ((hi & (1 << x) > 0) as u8)
-}
-
-fn get_obj_tile_id(ppu: &Ppu, x: usize, y: usize) -> u8 {
-    let obj_on_scanline = ppu.oam.iter().step_by(4).any(|&y_pos| y_pos as usize == y);
-    
+    let lo = (ppu.read_vram(tile_base + 2 * y) & (1 << x)) > 0;
+    let hi = (ppu.read_vram(tile_base + 2 * y + 1) & (1 << x)) > 0;
+    match (lo, hi) {
+        (false, false) => 0,
+        (true, false) => 1,
+        (false, true) => 2,
+        (true, true) => 3,
+    }
 }
 
 fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
-    // Background or Window pixel
-    let bg_tile_id = get_bg_tile_id(ppu, x, y);
-    let bg_pixel = get_bg_tile_data(ppu, x, y, bg_tile_id);
+    // If pixel is in window area, fetch window pixel. Otherwise fetch background pixel
+    let tile_id = if ppu.control.contains(Control::window_enable)
+        && x + 7 >= ppu.wx as usize
+        && y >= ppu.wy as usize
+    {
+        get_win_tile_id(ppu, x, y)
+    } else {
+        get_bg_tile_id(ppu, x, y)
+    };
+    let pixel_id = get_bg_pixel_id(ppu, x, y, tile_id);
+    let bg_color = GB_PALETTE[pixel_id];
 
     // Sprite Pixel
 

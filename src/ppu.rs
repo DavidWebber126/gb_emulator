@@ -11,7 +11,7 @@ bitflags! {
         // Window Enable
         const window_enable = 0b0010_0000;
         // BG & Window tile data area
-        const bg_tile_mode = 0b0001_0000;
+        const bg_win_mode = 0b0001_0000;
         // BG Tile map area
         const bg_tile_area = 0b0000_1000;
         // OBJ Size
@@ -118,5 +118,9 @@ impl Ppu {
         let mirrored_addr = addr - 0xFE00;
         assert!(mirrored_addr < 0xA0);
         self.oam[mirrored_addr as usize] = val;
+    }
+
+    pub fn oam_dma(&mut self, page: [u8; 0xA0]) {
+        self.oam = page;
     }
 }

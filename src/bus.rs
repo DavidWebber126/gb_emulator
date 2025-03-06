@@ -209,6 +209,16 @@ impl Bus {
             ),
             // LYC
             0xFF45 => self.ppu.lyc = data,
+            // OAM DMA source address and start
+            0xFF46 => {
+                assert!(data <= 0xDF);
+                let start_addr = (data as u16) << 8;
+                let mut page: [u8; 0xA0] = [0; 0xA0];
+                for i in 0..0xA0 {
+                    page[i] = self.mem_read(start_addr + i as u16);
+                }
+                self.ppu.oam_dma(page);
+            }
             // BGP: BG Palette data
             0xFF47 => self.ppu.bg_palette = data,
             // OBP0: OBJ Palette 0
