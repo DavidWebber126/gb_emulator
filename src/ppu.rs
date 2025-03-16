@@ -123,4 +123,8 @@ impl Ppu {
     pub fn oam_dma(&mut self, page: [u8; 0xA0]) {
         self.oam = page;
     }
+
+    pub fn tick(&mut self, cycles: usize) {
+        
+    }
 }

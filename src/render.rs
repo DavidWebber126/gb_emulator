@@ -1,5 +1,6 @@
 use crate::ppu::{Control, Ppu};
 
+// white, light gray, dark gray, black
 pub static GB_PALETTE: [(u8, u8, u8); 4] =
     [(155, 188, 15), (139, 172, 15), (48, 98, 48), (15, 56, 15)];
 
@@ -53,15 +54,33 @@ fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> u8 {
     ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16)
 }
 
-fn get_bg_pixel_id(ppu: &Ppu, x: usize, y: usize, tile_id: u8) -> usize {
+fn get_sprite(ppu: &Ppu, x: usize, y: usize) -> Option<usize> {
+    let mut valid_objs = Vec::new();
+    for i in 0..40 {
+        let y_byte = ppu.oam[4 * i];
+        let x_byte = ppu.oam[4 * i + 1];
+        let valid = y + 16 >= y_byte as usize
+            && y + 8 *(!ppu.control.contains(Control::obj_size) as usize) < y_byte as usize // If 8x8 we need y < y_byte - 8, in 8x16 just y < y_byte
+            && x + 8 >= x_byte as usize
+            && x < x_byte as usize;
+        if valid {
+            valid_objs.push((x_byte, i));
+        }
+    }
+    valid_objs.sort();
+    valid_objs.into_iter().map(|(_x, index)| index).next()
+}
+
+fn get_pixel_data(ppu: &Ppu, x: usize, y: usize, tile_id: u8, is_obj: bool) -> u8 {
     let x = (x % 8) as u16; // x coordinate of current tile
     let y = (y % 8) as u16; // y coordinate of current tile
+                            // if is_obj = true then we want else case base to be 0x8000
+                            // if is_obj = false then we need to check
+    let adjust = !is_obj && ppu.control.contains(Control::bg_win_mode);
     let tile_base = if tile_id > 127 {
         0x8800 + 16 * (tile_id as u16 - 128)
     } else {
-        0x8000
-            + 16 * (tile_id as u16)
-            + 0x1000 * (ppu.control.contains(Control::bg_win_mode) as u16)
+        0x8000 + 16 * (tile_id as u16) + 0x1000 * (adjust as u16)
     };
     let lo = (ppu.read_vram(tile_base + 2 * y) & (1 << x)) > 0;
     let hi = (ppu.read_vram(tile_base + 2 * y + 1) & (1 << x)) > 0;
@@ -83,10 +102,46 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
     } else {
         get_bg_tile_id(ppu, x, y)
     };
-    let pixel_id = get_bg_pixel_id(ppu, x, y, tile_id);
-    let bg_color = GB_PALETTE[pixel_id];
+    let pixel_id = get_pixel_data(ppu, x, y, tile_id, false);
+    let bg_pixel = ppu.bg_palette & (0b11 << (2 * pixel_id));
 
     // Sprite Pixel
+    let sprite_in_pixel = get_sprite(ppu, x, y);
+    let obj_pixel = if let Some(sprite_index) = sprite_in_pixel {
+        let mut y_pos = y as u8 + 16 - ppu.oam[4 * sprite_index];
+        let mut x_pos = x as u8 + 8 - ppu.oam[4 * sprite_index + 1];
+        let tile_index = ppu.oam[4 * sprite_index + 2];
+        let sprite_attr = ppu.oam[4 * sprite_index + 3];
+
+        if sprite_attr & 0b0010_0000 > 0 {
+            x_pos = 8 - x_pos;
+        }
+        if sprite_attr & 0b0100_0000 > 0 {
+            y_pos = 8 + (8 * ppu.control.contains(Control::obj_size) as u8) - y_pos;
+        }
+
+        let obj_id = if ppu.control.contains(Control::obj_size) && y_pos >= 8 {
+            get_pixel_data(ppu, x_pos as usize, y_pos as usize, tile_index + 1, true)
+        } else {
+            get_pixel_data(ppu, x_pos as usize, y_pos as usize, tile_index, true)
+        };
+
+        if sprite_attr & 0b1000_0000 > 0 {
+            None
+        } else if sprite_attr & 0b0001_0000 > 0 {
+            Some(ppu.obp1 & (0b11 << (2 * pixel_id)))
+        } else {
+            Some(ppu.obp0 & (0b11 << (2 * pixel_id)))
+        }
+    } else {
+        None
+    };
 
     // Decide which has priority and draw to Frame
+    let pixel = match (ppu.control.contains(Control::obj_enable), obj_pixel) {
+        (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
+        _ => GB_PALETTE[bg_pixel as usize],
+    };
+
+    frame.set_pixel(x, y, pixel);
 }
