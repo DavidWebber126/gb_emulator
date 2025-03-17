@@ -1,3 +1,5 @@
 Notes:
 - EI is set at the next instruction after EI. I'm ignoring that for now and setting the flag immediately
+- Need to implement correct memory mapping logic
+- Need to display screen to see if tetris is working.
 

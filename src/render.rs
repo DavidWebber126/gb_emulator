@@ -140,7 +140,13 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
     // Decide which has priority and draw to Frame
     let pixel = match (ppu.control.contains(Control::obj_enable), obj_pixel) {
         (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
-        _ => GB_PALETTE[bg_pixel as usize],
+        _ => {
+            if ppu.control.contains(Control::bg_win_enable) {
+                GB_PALETTE[bg_pixel as usize]
+            } else {
+                GB_PALETTE[0]
+            }
+        }
     };
 
     frame.set_pixel(x, y, pixel);

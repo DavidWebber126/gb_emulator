@@ -39,12 +39,20 @@ impl Cartridge {
         })
     }
 
-    pub fn read_rom(&mut self, addr: usize) -> u8 {
-        self.cartridge_rom[addr]
+    pub fn read_bank0(&mut self, addr: u16) -> u8 {
+        self.cartridge_rom[addr as usize]
     }
 
-    pub fn write_rom(&mut self, addr: usize, data: u8) {
-        self.cartridge_rom[addr] = data;
+    pub fn read_bankn(&mut self, addr: u16) -> u8 {
+        self.cartridge_rom[addr as usize]
+    }
+
+    pub fn ram_write(&mut self, addr: u16, val: u8) {
+        self.cartridge_ram[addr as usize] = val;
+    }
+
+    pub fn ram_read(&mut self, addr: u16) -> u8 {
+        self.cartridge_ram[addr as usize]
     }
 }
 

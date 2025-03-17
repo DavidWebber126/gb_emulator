@@ -19,7 +19,7 @@ pub fn trace_cpu(cpu: &mut Cpu) {
     // Get all bytes involved in the opcode
     let mut opcode_as_bytes = Vec::new();
     for i in 1..opcode.bytes {
-        opcode_as_bytes.push(cpu.bus.mem_read(pc + i));
+        opcode_as_bytes.push(cpu.bus.mem_read(pc.wrapping_add(i)));
     }
 
     let mut opcode_format = format!("{:02X}", opcode_byte);

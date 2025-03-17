@@ -80,16 +80,12 @@ impl Bus {
         self.interrupt_flag.contains(Interrupt::joypad)
     }
 
-    fn bank_read(&mut self, addr: u16) -> u8 {
-        todo!()
-    }
-
     pub fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
             // Cartridge ROM bank 0
-            0x0000..=0x3FFF => self.cartridge.read_rom(addr as usize),
+            0x0000..=0x3FFF => self.cartridge.read_bank0(addr),
             // Cartridge ROM bank 01-NN. May be mapped
-            0x4000..=0x7FFF => self.bank_read(addr),
+            0x4000..=0x7FFF => self.cartridge.read_bankn(addr),
             // VRAM
             0x8000..=0x9FFF => self.ppu.read_vram(addr),
             // Cartridge RAM (not always present)
@@ -155,11 +151,11 @@ impl Bus {
             }
             // VRAM
             0x8000..=0x9FFF => {
-                todo!()
+                self.ppu.write_vram(addr, data);
             }
             // Cartridge RAM (not always present)
             0xA000..=0xBFFF => {
-                todo!()
+                self.cartridge.ram_write(addr, data);
             }
             // CPU RAM
             0xC000..=0xDFFF => {
@@ -176,7 +172,7 @@ impl Bus {
             }
             // OAM RAM
             0xFE00..=0xFE9F => {
-                self.ppu.write_vram(addr, data);
+                self.ppu.oam_write(addr, data);
             }
             // Not usable
             0xFEA0..=0xFEFF => {
@@ -189,6 +185,28 @@ impl Bus {
             0xFF01 | 0xFF02 => {}
             // Timer and divider
             0xFF04..=0xFF07 => todo!("Implement timer and divider"),
+            // Sound channel 1 sweep
+            0xFF10 => {}
+            // Sound channel 1 volume & envelope
+            0xFF12 => {}
+            // Sound channel 1 period high & control
+            0xFF14 => {}
+            // Sound channel 2 volume & envelope
+            0xFF17 => {}
+            // Sound channel 2 period high & control
+            0xFF19 => {}
+            // Sound channel 3 DAC enable
+            0xFF1A => {}
+            // Sound channel 4 volume & envelope
+            0xFF21 => {}
+            // Sound channel 4 control
+            0xFF23 => {}
+            // Master volume & VIN panning
+            0xFF24 => {}
+            // Sound panning
+            0xFF25 => {}
+            // Sound on/off
+            0xFF26 => {}
             // Interrupts
             0xFF0F => {
                 self.interrupt_flag = Interrupt::from_bits_retain(data);
@@ -214,8 +232,8 @@ impl Bus {
                 assert!(data <= 0xDF);
                 let start_addr = (data as u16) << 8;
                 let mut page: [u8; 0xA0] = [0; 0xA0];
-                for i in 0..0xA0 {
-                    page[i] = self.mem_read(start_addr + i as u16);
+                for (i, byte) in page.iter_mut().enumerate()  {
+                    *byte = self.mem_read(start_addr + i as u16);
                 }
                 self.ppu.oam_dma(page);
             }
@@ -234,7 +252,8 @@ impl Bus {
             // BCPD/BGPD: Background color palette data
             0xFF69 => self.ppu.bcpd = data,
             0xFF6A | 0xFF6B => todo!(),
-
+            // Unused but doesn't crash run
+            0xFF78..=0xFF7F => {}
             // High RAM
             0xFF80..=0xFFFE => {
                 let mirrored_addr = addr - 0xff80;
