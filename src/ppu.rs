@@ -36,10 +36,26 @@ bitflags! {
         // Mode 0 Int Select
         const mode_zero_select = 0b0000_1000;
         // LYC == LY
-        const compare_result = 0b0000_0100;
+        const compare = 0b0000_0100;
         // PPU Mode
         const ppu_mode = 0b0000_0011;
     }
+}
+
+#[derive(PartialEq, Clone, Copy)]
+enum Mode {
+    MODE2, // oam scan
+    MODE3, // render pixels
+    MODE0, // hblank
+    MODE1, // vblank
+}
+
+// Tell Bus what should be rendered or done
+pub enum DisplayStatus {
+    DoNothing,
+    OAMScan,
+    NewScanline, // Changed from
+    NewFrame,
 }
 
 pub struct Ppu {
@@ -58,9 +74,22 @@ pub struct Ppu {
     pub obp1: u8,
     pub bcps: u8,
     pub bcpd: u8,
+    pub cycle: usize,
+    pub scanline: u8,
+    mode: Mode,
+    scanline_oams: Vec<usize>, // hold the up to 10 OAMs on current scanline. Referenced by first byte in four byte sequence
 }
 
 impl Ppu {
+    const MODE2_END: usize = 80;
+    const MODE3_START: usize = 81;
+    const MODE3_END: usize = 172 + Ppu::MODE2_END;
+    const MODE0_START: usize = Ppu::MODE3_END + 1;
+    const MODE0_END: usize = 456;
+    const SCANLINE_LENGTH: usize = 456;
+    const MAX_SCANLINE: u8 = 153;
+    const MODE1_START: u8 = 144;
+
     pub fn new() -> Self {
         Self {
             vram: [0; 0x2000],
@@ -77,6 +106,11 @@ impl Ppu {
             obp1: 0,
             bcps: 0,
             bcpd: 0,
+            mode: Mode::MODE2,
+            scanline_oams: Vec::with_capacity(10),
+
+            cycle: 0,
+            scanline: 0,
         }
     }
 
@@ -124,7 +158,108 @@ impl Ppu {
         self.oam = page;
     }
 
-    pub fn tick(&mut self, cycles: usize) {
-        
+    // Called once Ppu has entered Mode 2. Scan objects that are on current scanline and put into scanline_oams
+    pub fn oam_scan(&mut self) {
+        for i in 0..40 {
+            let y_byte = self.oam[4 * i];
+            let in_scanline = self.scanline + 16 >= y_byte
+                && self.scanline + 8 * (!self.control.contains(Control::obj_size) as u8) < y_byte;
+            if in_scanline && self.scanline_oams.len() < 10 {
+                self.scanline_oams.push(i)
+            }
+        }
+    }
+
+    // 456 cycles per scanline. 154 scanlines, last 10 (144-153 inclusive) are vblank
+    pub fn tick(&mut self, cycles: u8) -> (DisplayStatus, bool) {
+        self.cycle += cycles as usize;
+        let mut result: (DisplayStatus, bool) = (DisplayStatus::DoNothing, false);
+        if self.cycle > Ppu::SCANLINE_LENGTH {
+            self.cycle %= Ppu::SCANLINE_LENGTH;
+            self.scanline += 1;
+
+            // After vblank, reset to scanline 0
+            if self.scanline > Ppu::MAX_SCANLINE {
+                self.scanline = 0;
+                self.mode = Mode::MODE2;
+            }
+
+            // vblank has started
+            if self.scanline >= Ppu::MODE1_START {
+                self.mode = Mode::MODE1;
+                if self.status.contains(Status::mode_one_select) {
+                    // Trigger LCD Interrupt through return
+                    result.1 = true;
+                }
+            }
+
+            if self.status.contains(Status::lyc_select) && self.scanline == self.lyc {
+                // Trigger LCD Interrupt through return
+                result.1 = true;
+            }
+        }
+
+        // Check if Mode has changed
+        let prior_mode = self.mode;
+        match self.cycle {
+            0..=Ppu::MODE2_END => {
+                self.mode = Mode::MODE2;
+            }
+            Ppu::MODE3_START..=Ppu::MODE3_END => {
+                self.mode = Mode::MODE3;
+            }
+            Ppu::MODE0_START..=Ppu::MODE0_END => {
+                self.mode = Mode::MODE0;
+            }
+            _ => {
+                self.cycle %= Ppu::MODE0_END;
+            }
+        }
+        // If mode changed then trigger mode interrupt (if Stat for that mode is set)
+        if prior_mode != self.mode {
+            if self.mode == Mode::MODE0 {
+                // Entered HBlank. Do nothing
+                result.0 = DisplayStatus::DoNothing;
+                if self.status.contains(Status::mode_zero_select) {
+                    // Trigger LCD Interrupt through return
+                    result.1 = true;
+                }
+            }
+            if self.mode == Mode::MODE1 {
+                // Entered VBlank. Display new frame
+                result.0 = DisplayStatus::NewFrame;
+                if self.status.contains(Status::mode_one_select) {
+                    // Trigger LCD Interrupt through return
+                    result.1 = true;
+                }
+            }
+            if self.mode == Mode::MODE2 {
+                // Entered Mode 2. Do OAM Scan
+                result.0 = DisplayStatus::OAMScan;
+                if self.status.contains(Status::mode_two_select) {
+                    // Trigger LCD Interrupt through return
+                    result.1 = true;
+                }
+            }
+            if self.mode == Mode::MODE3 {
+                // Entered drawing stage. Draw new scanline
+                result.0 = DisplayStatus::NewScanline;
+            }
+
+            // Update PPU mode in status. Need to use bits since PPU mode is 2 bits wide
+            let mut new_mode = match self.mode {
+                Mode::MODE0 => 0,
+                Mode::MODE1 => 1,
+                Mode::MODE2 => 2,
+                Mode::MODE3 => 3,
+            };
+            // If PPU/LCD is off, set PPU mode to 0
+            if !self.control.contains(Control::lcd_enable) {
+                new_mode = 0;
+            }
+            // Set only bottom 2 bits
+            self.status = Status::from_bits_retain((self.status.bits() & 0b1111_1100) | new_mode);
+        }
+        result
     }
 }

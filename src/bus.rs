@@ -1,7 +1,8 @@
 use bitflags::bitflags;
 
 use crate::cartridge::Cartridge;
-use crate::ppu::Ppu;
+use crate::ppu::{DisplayStatus, Ppu};
+use crate::render::{self, Frame};
 
 bitflags! {
     #[derive(PartialEq, Debug, Clone)]
@@ -26,6 +27,7 @@ pub struct Bus {
     pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
     pub interrupt_flag: Interrupt,
     pub ppu: Ppu,
+    pub frame: Frame,
 }
 
 impl Bus {
@@ -37,6 +39,7 @@ impl Bus {
             interrupt_enable: Interrupt::empty(),
             interrupt_flag: Interrupt::empty(),
             ppu: Ppu::new(),
+            frame: Frame::new(),
         }
     }
 
@@ -80,6 +83,17 @@ impl Bus {
         self.interrupt_flag.contains(Interrupt::joypad)
     }
 
+    pub fn tick(&mut self, cycles: u8) {
+        let (display_result, lcd_interrupt) = self.ppu.tick(cycles);
+        self.interrupt_flag.set(Interrupt::lcd, lcd_interrupt);
+        match display_result {
+            DisplayStatus::DoNothing => {}
+            DisplayStatus::OAMScan => self.ppu.oam_scan(), // Mode 2 started
+            DisplayStatus::NewScanline => render::render_scanline(&mut self.ppu, &mut self.frame), // Mode 3 started
+            DisplayStatus::NewFrame => render::display_frame(&mut self.frame), // Mode 1 started (vblank)
+        }
+    }
+
     pub fn mem_read(&mut self, addr: u16) -> u8 {
         match addr {
             // Cartridge ROM bank 0
@@ -89,9 +103,7 @@ impl Bus {
             // VRAM
             0x8000..=0x9FFF => self.ppu.read_vram(addr),
             // Cartridge RAM (not always present)
-            0xA000..=0xBFFF => {
-                todo!()
-            }
+            0xA000..=0xBFFF => self.cartridge.ram_read(addr),
             // CPU RAM
             0xC000..=0xDFFF => {
                 let mirrored_addr = addr % 0x2000;
@@ -123,6 +135,7 @@ impl Bus {
             // Interrupts
             0xFF0F => self.interrupt_flag.bits(),
             0xFF40 => self.ppu.read_ctrl(),
+            0xFF41 => self.ppu.read_status(),
             // Rest tbd
             0xFF10..=0xFF7F => {
                 todo!()
@@ -232,7 +245,7 @@ impl Bus {
                 assert!(data <= 0xDF);
                 let start_addr = (data as u16) << 8;
                 let mut page: [u8; 0xA0] = [0; 0xA0];
-                for (i, byte) in page.iter_mut().enumerate()  {
+                for (i, byte) in page.iter_mut().enumerate() {
                     *byte = self.mem_read(start_addr + i as u16);
                 }
                 self.ppu.oam_dma(page);

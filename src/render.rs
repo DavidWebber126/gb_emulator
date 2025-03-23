@@ -1,8 +1,7 @@
 use crate::ppu::{Control, Ppu};
 
 // white, light gray, dark gray, black
-pub static GB_PALETTE: [(u8, u8, u8); 4] =
-    [(155, 188, 15), (139, 172, 15), (48, 98, 48), (15, 56, 15)];
+const GB_PALETTE: [(u8, u8, u8); 4] = [(155, 188, 15), (139, 172, 15), (48, 98, 48), (15, 56, 15)];
 
 pub struct Frame {
     pub data: Vec<u8>,
@@ -150,4 +149,15 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
     };
 
     frame.set_pixel(x, y, pixel);
+}
+
+pub fn render_scanline(ppu: &mut Ppu, frame: &mut Frame) {
+    let current_scanline = ppu.scanline;
+    for i in 0..160 {
+        render_pixel(ppu, i, current_scanline as usize, frame);
+    }
+}
+
+pub fn display_frame(_frame: &mut Frame) {
+    todo!()
 }

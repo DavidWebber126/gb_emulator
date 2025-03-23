@@ -55,7 +55,7 @@ impl Cpu {
     }
 
     pub fn get_bc(&self) -> u16 {
-        (self.b as u16) << 8 | self.c as u16
+        ((self.b as u16) << 8) | self.c as u16
     }
 
     pub fn set_bc(&mut self, value: u16) {
@@ -64,7 +64,7 @@ impl Cpu {
     }
 
     pub fn get_de(&self) -> u16 {
-        (self.d as u16) << 8 | self.e as u16
+        ((self.d as u16) << 8) | self.e as u16
     }
 
     pub fn set_de(&mut self, value: u16) {
@@ -73,7 +73,7 @@ impl Cpu {
     }
 
     pub fn get_hl(&self) -> u16 {
-        (self.h as u16) << 8 | self.l as u16
+        ((self.h as u16) << 8) | self.l as u16
     }
 
     pub fn set_hl(&mut self, value: u16) {
@@ -87,7 +87,7 @@ impl Cpu {
     }
 
     pub fn get_af(&self) -> u16 {
-        (self.a as u16) << 8 | self.flags.bits() as u16
+        ((self.a as u16) << 8) | self.flags.bits() as u16
     }
 
     fn push_u8_to_stack(&mut self, val: u8) {
@@ -340,7 +340,7 @@ impl Cpu {
             self.interrupt_check();
 
             // Get opcode from prefixed or regular
-            let (result, _cycles, bytes) = if self.prefixed_mode {
+            let (result, cycles, bytes) = if self.prefixed_mode {
                 let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
                 let opcode_num = self.bus.mem_read(self.program_counter);
                 let opcode = opcodes.get(&opcode_num).unwrap();
@@ -367,6 +367,7 @@ impl Cpu {
                 break;
             }
 
+            self.bus.tick(cycles);
             self.program_counter = self.program_counter.wrapping_add(bytes);
         }
     }
