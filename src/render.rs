@@ -157,7 +157,3 @@ pub fn render_scanline(ppu: &mut Ppu, frame: &mut Frame) {
         render_pixel(ppu, i, current_scanline as usize, frame);
     }
 }
-
-pub fn display_frame(_frame: &mut Frame) {
-    todo!()
-}

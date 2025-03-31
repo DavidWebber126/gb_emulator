@@ -12,7 +12,9 @@ pub fn trace_cpu(cpu: &mut Cpu) {
         opcode
     } else {
         let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_OP_CODES;
-        let opcode = opcodes.get(&opcode_byte).unwrap();
+        let opcode = opcodes
+            .get(&opcode_byte)
+            .unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_byte));
         opcode
     };
 

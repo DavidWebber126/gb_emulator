@@ -179,7 +179,7 @@ lazy_static! {
         map.insert(0xda, Opcode::new("JP", TargetReg::Cond(2), TargetReg::Imm16, 3, 3));
 
         // jp hl
-        map.insert(0xd9, Opcode::new("JP", TargetReg::None, TargetReg::None, 1, 1));
+        map.insert(0xe9, Opcode::new("JP", TargetReg::R16(2), TargetReg::None, 1, 1));
 
         // jr n8
         map.insert(0x18, Opcode::new("JR", TargetReg::Imm8, TargetReg::None, 2, 3));
@@ -424,6 +424,9 @@ lazy_static! {
 
         // xor a, n8
         map.insert(0xee, Opcode::new("XOR", TargetReg::A, TargetReg::Imm8, 2, 2));
+
+        // Prefix
+        map.insert(0xcb, Opcode::new("CB", TargetReg::None, TargetReg::None, 0, 0));
 
         map
     };

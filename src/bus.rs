@@ -1,6 +1,9 @@
 use bitflags::bitflags;
+use sdl2::pixels::PixelFormatEnum;
+use sdl2::render::Canvas;
+use sdl2::video::Window;
 
-use crate::cartridge::Cartridge;
+use crate::cartridge::Mapper;
 use crate::ppu::{DisplayStatus, Ppu};
 use crate::render::{self, Frame};
 
@@ -23,15 +26,16 @@ bitflags! {
 pub struct Bus {
     pub cpu_ram: [u8; 0x2000], // not sure size of cpu ram
     pub hram: [u8; 0x7F],      // CPU high ram 0xFF80 - 0xFFFE
-    pub cartridge: Cartridge,
+    pub cartridge: Box<dyn Mapper>,
     pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
     pub interrupt_flag: Interrupt,
     pub ppu: Ppu,
     pub frame: Frame,
+    pub canvas: Canvas<Window>,
 }
 
 impl Bus {
-    pub fn new(cartridge: Cartridge) -> Self {
+    pub fn new(cartridge: Box<dyn Mapper>, canvas: Canvas<Window>) -> Self {
         Bus {
             cpu_ram: [0; 0x2000],
             hram: [0; 0x7F],
@@ -40,6 +44,7 @@ impl Bus {
             interrupt_flag: Interrupt::empty(),
             ppu: Ppu::new(),
             frame: Frame::new(),
+            canvas,
         }
     }
 
@@ -86,11 +91,22 @@ impl Bus {
     pub fn tick(&mut self, cycles: u8) {
         let (display_result, lcd_interrupt) = self.ppu.tick(cycles);
         self.interrupt_flag.set(Interrupt::lcd, lcd_interrupt);
+        //println!("{:?}", &display_result);
         match display_result {
             DisplayStatus::DoNothing => {}
             DisplayStatus::OAMScan => self.ppu.oam_scan(), // Mode 2 started
             DisplayStatus::NewScanline => render::render_scanline(&mut self.ppu, &mut self.frame), // Mode 3 started
-            DisplayStatus::NewFrame => render::display_frame(&mut self.frame), // Mode 1 started (vblank)
+            DisplayStatus::NewFrame => {
+                // Mode 1 started (vblank)
+                //println!("Are we here?");
+                let creator = self.canvas.texture_creator();
+                let mut texture = creator
+                    .create_texture_target(PixelFormatEnum::RGB24, 160, 144)
+                    .unwrap();
+                texture.update(None, &self.frame.data, 160 * 3).unwrap();
+                self.canvas.copy(&texture, None, None).unwrap();
+                self.canvas.present();
+            }
         }
     }
 
@@ -136,10 +152,9 @@ impl Bus {
             0xFF0F => self.interrupt_flag.bits(),
             0xFF40 => self.ppu.read_ctrl(),
             0xFF41 => self.ppu.read_status(),
-            // Rest tbd
-            0xFF10..=0xFF7F => {
-                todo!()
-            }
+            // LY
+            0xFF44 => self.ppu.scanline,
+
             // High RAM
             0xFF80..=0xFFFE => {
                 let mirrored_addr = addr - 0xff80;
@@ -193,11 +208,11 @@ impl Bus {
             }
             // IO Registers 0xFF00 - 0xFF7F
             // Joypad Input
-            0xFF00 => todo!("Implement Joypad input"),
+            0xFF00 => {}
             // Serial transfer
             0xFF01 | 0xFF02 => {}
             // Timer and divider
-            0xFF04..=0xFF07 => todo!("Implement timer and divider"),
+            0xFF04..=0xFF07 => {}
             // Sound channel 1 sweep
             0xFF10 => {}
             // Sound channel 1 volume & envelope

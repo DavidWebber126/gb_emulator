@@ -51,6 +51,7 @@ enum Mode {
 }
 
 // Tell Bus what should be rendered or done
+#[derive(Debug)]
 pub enum DisplayStatus {
     DoNothing,
     OAMScan,
@@ -173,6 +174,7 @@ impl Ppu {
     // 456 cycles per scanline. 154 scanlines, last 10 (144-153 inclusive) are vblank
     pub fn tick(&mut self, cycles: u8) -> (DisplayStatus, bool) {
         self.cycle += cycles as usize;
+        let prior_mode = self.mode;
         let mut result: (DisplayStatus, bool) = (DisplayStatus::DoNothing, false);
         if self.cycle > Ppu::SCANLINE_LENGTH {
             self.cycle %= Ppu::SCANLINE_LENGTH;
@@ -199,20 +201,20 @@ impl Ppu {
             }
         }
 
-        // Check if Mode has changed
-        let prior_mode = self.mode;
-        match self.cycle {
-            0..=Ppu::MODE2_END => {
-                self.mode = Mode::MODE2;
-            }
-            Ppu::MODE3_START..=Ppu::MODE3_END => {
-                self.mode = Mode::MODE3;
-            }
-            Ppu::MODE0_START..=Ppu::MODE0_END => {
-                self.mode = Mode::MODE0;
-            }
-            _ => {
-                self.cycle %= Ppu::MODE0_END;
+        if self.mode != Mode::MODE1 {
+            match self.cycle {
+                0..=Ppu::MODE2_END => {
+                    self.mode = Mode::MODE2;
+                }
+                Ppu::MODE3_START..=Ppu::MODE3_END => {
+                    self.mode = Mode::MODE3;
+                }
+                Ppu::MODE0_START..=Ppu::MODE0_END => {
+                    self.mode = Mode::MODE0;
+                }
+                _ => {
+                    self.cycle %= Ppu::MODE0_END;
+                }
             }
         }
         // If mode changed then trigger mode interrupt (if Stat for that mode is set)

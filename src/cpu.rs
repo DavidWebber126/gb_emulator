@@ -345,6 +345,8 @@ impl Cpu {
                 let opcode_num = self.bus.mem_read(self.program_counter);
                 let opcode = opcodes.get(&opcode_num).unwrap();
 
+                self.prefixed_mode = false;
+
                 (
                     self.prefixed_opcodes(opcode_num, opcode),
                     opcode.cycles,
@@ -533,7 +535,8 @@ impl Cpu {
             // CALL
             0xcd => {
                 let addr = self.reg_read(&opcode.reg1).unwrap();
-                self.call(addr);
+                self.push_u16_to_stack(self.program_counter.wrapping_add(3));
+                self.program_counter = addr.wrapping_sub(3);
             }
             // CALL cc
             0xc4 | 0xcc | 0xd4 | 0xdc => {
@@ -549,7 +552,8 @@ impl Cpu {
                     // inc cycle count
                     // self.cycles += 1;
                     let addr = self.reg_read(&opcode.reg2).unwrap();
-                    self.call(addr);
+                    self.push_u16_to_stack(self.program_counter.wrapping_add(3));
+                    self.program_counter = addr.wrapping_sub(3);
                 }
             }
             // CCF
@@ -638,7 +642,12 @@ impl Cpu {
             // JP
             0xc3 => {
                 let addr = self.reg_read(&opcode.reg1).unwrap();
-                self.program_counter = addr - 3; // Subtract 3 bytes to account for the addition of 3 bytes from the JP opcode
+                self.program_counter = addr.wrapping_sub(3); // Subtract 3 bytes to account for the addition of 3 bytes from the JP opcode
+            }
+            // JP HL
+            0xe9 => {
+                let addr = self.reg_read(&opcode.reg1).unwrap();
+                self.program_counter = addr.wrapping_sub(1); // Subtract 1 byte to account for the addition of 1 byte from the JP opcode
             }
             // JP cc
             0xc2 | 0xca | 0xd2 | 0xda => {
@@ -713,9 +722,21 @@ impl Cpu {
                 self.flags.set(CpuFlag::subtraction, false);
             }
             // 8 bit LDH
-            0xe2 | 0xe0 | 0xf0 | 0xf2 => {
+            0xe2 | 0xf2 => {
                 let value = self.reg_read(&opcode.reg2).unwrap();
                 self.reg_write(&opcode.reg1, value);
+            }
+            // LDH imm8, A
+            0xe0 => {
+                let addr_lo = self.reg_read(&opcode.reg1).unwrap();
+                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+                self.bus.mem_write(0xff00 + (addr_lo & 0x00ff), val);
+            }
+            // LDH A, imm8
+            0xf0 => {
+                let addr = self.reg_read(&opcode.reg2).unwrap();
+                let val = self.bus.mem_read(0xff00 + (addr & 0x00ff));
+                self.a = val;
             }
             // NOP
             0x00 => {
@@ -809,7 +830,9 @@ impl Cpu {
             // RST
             0xc7 | 0xcf | 0xd7 | 0xdf | 0xe7 | 0xef | 0xf7 | 0xff => {
                 let addr = self.reg_read(&opcode.reg1).unwrap();
-                self.call(addr);
+                // push next instruction onto the stack
+                self.push_u16_to_stack(self.program_counter + 1);
+                self.program_counter = addr.wrapping_sub(1); // -1 since rst instruction is one byte long
             }
             // 8 bit SBC
             0x98..=0x9f | 0xde => {
@@ -838,6 +861,10 @@ impl Cpu {
                 self.flags.set(CpuFlag::subtraction, false);
                 self.flags.set(CpuFlag::carry, false);
                 self.flags.set(CpuFlag::half_carry, false);
+            }
+            // Prefixed
+            0xcb => {
+                self.prefixed_mode = true;
             }
             _ => panic!(
                 "Opcode: {:02X} '{}' is not implemented yet",
@@ -875,11 +902,6 @@ impl Cpu {
         sum
     }
 
-    fn call(&mut self, addr: u16) {
-        self.push_u16_to_stack(self.program_counter + 3);
-        self.program_counter = addr - 3; // Subtract 3 to account for the three bytes of opcode
-    }
-
     fn sub_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {
         let result = self.add_u8(arg1, (!arg2).wrapping_add(1), carry);
         self.flags.set(CpuFlag::subtraction, true);
@@ -891,15 +913,17 @@ impl Cpu {
 
 #[cfg(test)]
 mod tests {
-    use crate::cartridge::Cartridge;
+    use crate::cartridge::get_mapper;
+    use crate::sdl2_setup::sdl2_setup;
 
     use super::*;
     use rand::prelude::*;
     use std::vec;
 
     fn setup(program: Vec<u8>) -> Cpu {
-        let cartridge = Cartridge::new(&program).unwrap();
-        let bus = Bus::new(cartridge);
+        let cartridge = get_mapper(&program);
+        let (canvas, _event_pump) = sdl2_setup();
+        let bus = Bus::new(Box::new(cartridge), canvas);
         let cpu = Cpu::new(bus);
         cpu
     }
