@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use crate::bus::{Bus, Interrupt};
 use crate::opcodes::{self, Opcode, TargetReg};
+use crate::render;
 use crate::trace;
 
 bitflags! {
@@ -33,6 +34,7 @@ pub struct Cpu {
     pub ime: bool,
     pub bus: Bus,
     pub prefixed_mode: bool,
+    pub frame_ready: bool,
 }
 
 impl Cpu {
@@ -51,6 +53,7 @@ impl Cpu {
             ime: false,
             bus,
             prefixed_mode: false,
+            frame_ready: false,
         }
     }
 
@@ -82,8 +85,9 @@ impl Cpu {
     }
 
     pub fn set_af(&mut self, value: u16) {
-        self.a = (value & 0xff) as u8;
-        self.flags = CpuFlag::from_bits_retain((value >> 8) as u8);
+        let [lo, hi] = value.to_le_bytes();
+        self.a = hi;
+        self.flags = CpuFlag::from_bits_retain(lo);
     }
 
     pub fn get_af(&self) -> u16 {
@@ -95,8 +99,8 @@ impl Cpu {
         self.stack_pointer -= 1;
     }
 
-    fn push_u16_to_stack(&mut self, addr: u16) {
-        let [lo, hi] = addr.to_le_bytes();
+    fn push_u16_to_stack(&mut self, val: u16) {
+        let [lo, hi] = val.to_le_bytes();
         self.push_u8_to_stack(hi);
         self.push_u8_to_stack(lo);
     }
@@ -328,60 +332,68 @@ impl Cpu {
         }
     }
 
-    // Main CPU loop. Fetch instruction, decode and execute.
-    pub fn run_with_callback<F>(&mut self, mut callback: F)
+    // Main CPU step. Fetch instruction, decode and execute.
+    // Tell bus how much to step the ppu and apu.
+    pub fn step<F>(&mut self, mut callback: F) -> Option<&render::Frame>
     where
         F: FnMut(&mut Cpu),
     {
-        loop {
-            callback(self);
+        callback(self);
 
-            // check for interrupts
-            self.interrupt_check();
+        // check for interrupts
+        self.interrupt_check();
 
-            // Get opcode from prefixed or regular
-            let (result, cycles, bytes) = if self.prefixed_mode {
-                let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
-                let opcode_num = self.bus.mem_read(self.program_counter);
-                let opcode = opcodes.get(&opcode_num).unwrap();
+        // Get opcode from prefixed or regular
+        let (_result, cycles, bytes) = if self.prefixed_mode {
+            let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
+            let opcode_num = self.bus.mem_read(self.program_counter);
+            let opcode = opcodes.get(&opcode_num).unwrap();
 
-                self.prefixed_mode = false;
+            self.prefixed_mode = false;
 
-                (
-                    self.prefixed_opcodes(opcode_num, opcode),
-                    opcode.cycles,
-                    opcode.bytes,
-                )
-            } else {
-                let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_OP_CODES;
-                let opcode_num = self.bus.mem_read(self.program_counter);
-                let opcode = opcodes.get(&opcode_num).unwrap();
+            (
+                self.prefixed_opcodes(opcode_num, opcode),
+                opcode.cycles,
+                opcode.bytes,
+            )
+        } else {
+            let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_OP_CODES;
+            let opcode_num = self.bus.mem_read(self.program_counter);
+            let opcode = opcodes.get(&opcode_num).unwrap();
 
-                (
-                    self.non_prefixed_opcodes(opcode_num, opcode),
-                    opcode.cycles,
-                    opcode.bytes,
-                )
-            };
+            (
+                self.non_prefixed_opcodes(opcode_num, opcode),
+                opcode.cycles,
+                opcode.bytes,
+            )
+        };
 
-            // Error handling from opcode. Break if halt
-            if result.is_err() {
-                break;
-            }
+        // Error handling from opcode. Break if halt
+        // if result.is_err() {
+        //     break;
+        // }
 
-            self.bus.tick(cycles);
-            self.program_counter = self.program_counter.wrapping_add(bytes);
+        self.frame_ready = self.bus.tick(cycles);
+        self.program_counter = self.program_counter.wrapping_add(bytes);
+
+        // check if frame is ready to display
+        let mut output = None;
+        if self.frame_ready {
+            output = Some(&self.bus.frame);
         }
+        output
     }
 
     pub fn run(&mut self) {
-        self.run_with_callback(|_| {});
+        loop {
+            let _ = self.step(|_| {});
+        }
     }
 
-    pub fn run_with_trace(&mut self) {
-        self.run_with_callback(|cpu| {
+    pub fn step_with_trace(&mut self) -> Option<&render::Frame> {
+        self.step(|cpu| {
             trace::trace_cpu(cpu);
-        });
+        })
     }
 
     fn prefixed_opcodes(&mut self, byte: u8, opcode: &Opcode) -> Result<(), &str> {
@@ -667,20 +679,20 @@ impl Cpu {
             }
             // JR imm8
             0x18 => {
-                let offset = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let offset = self.reg_read(&opcode.reg1).unwrap() as i8;
                 self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
-                self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
+                //self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
             }
             // JR cc
             0x20 | 0x28 | 0x30 | 0x38 => {
-                let offset = self.reg_read(&opcode.reg2).unwrap() as u8;
-                let condition = self.reg_read(&opcode.reg1).unwrap();
-                let should_execute = match condition {
+                let offset = self.reg_read(&opcode.reg2).unwrap() as i8;
+                let cond = self.reg_read(&opcode.reg1).unwrap();
+                let should_execute = match cond {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
                     2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
-                    _ => panic!("Condition Codes are 0-3. Received {}", condition),
+                    _ => panic!("Condition Codes are 0-3. Received {}", cond),
                 };
                 if should_execute {
                     // inc cycle count
@@ -850,7 +862,7 @@ impl Cpu {
             // 8 bit SUB
             0x90..=0x97 | 0xd6 => {
                 let reg = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.sub_u8(self.a, reg, false);
+                self.a = self.sub_u8(self.a, reg, false);
             }
             // 8 bit XOR
             0xa8..=0xaf | 0xee => {
@@ -914,7 +926,7 @@ impl Cpu {
 #[cfg(test)]
 mod tests {
     use crate::cartridge::get_mapper;
-    use crate::sdl2_setup::sdl2_setup;
+    use crate::sdl2_setup;
 
     use super::*;
     use rand::prelude::*;
@@ -922,8 +934,8 @@ mod tests {
 
     fn setup(program: Vec<u8>) -> Cpu {
         let cartridge = get_mapper(&program);
-        let (canvas, _event_pump) = sdl2_setup();
-        let bus = Bus::new(Box::new(cartridge), canvas);
+        let (_canvas, _event_pump) = sdl2_setup::setup();
+        let bus = Bus::new(cartridge);
         let cpu = Cpu::new(bus);
         cpu
     }

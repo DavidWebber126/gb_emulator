@@ -1,7 +1,4 @@
 use bitflags::bitflags;
-use sdl2::pixels::PixelFormatEnum;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
 
 use crate::cartridge::Mapper;
 use crate::ppu::{DisplayStatus, Ppu};
@@ -31,11 +28,10 @@ pub struct Bus {
     pub interrupt_flag: Interrupt,
     pub ppu: Ppu,
     pub frame: Frame,
-    pub canvas: Canvas<Window>,
 }
 
 impl Bus {
-    pub fn new(cartridge: Box<dyn Mapper>, canvas: Canvas<Window>) -> Self {
+    pub fn new(cartridge: Box<dyn Mapper>) -> Self {
         Bus {
             cpu_ram: [0; 0x2000],
             hram: [0; 0x7F],
@@ -44,7 +40,6 @@ impl Bus {
             interrupt_flag: Interrupt::empty(),
             ppu: Ppu::new(),
             frame: Frame::new(),
-            canvas,
         }
     }
 
@@ -88,24 +83,22 @@ impl Bus {
         self.interrupt_flag.contains(Interrupt::joypad)
     }
 
-    pub fn tick(&mut self, cycles: u8) {
+    pub fn tick(&mut self, cycles: u8) -> bool {
         let (display_result, lcd_interrupt) = self.ppu.tick(cycles);
         self.interrupt_flag.set(Interrupt::lcd, lcd_interrupt);
-        //println!("{:?}", &display_result);
         match display_result {
-            DisplayStatus::DoNothing => {}
-            DisplayStatus::OAMScan => self.ppu.oam_scan(), // Mode 2 started
-            DisplayStatus::NewScanline => render::render_scanline(&mut self.ppu, &mut self.frame), // Mode 3 started
+            DisplayStatus::DoNothing => false,
+            DisplayStatus::OAMScan => {
+                self.ppu.oam_scan(); // Mode 2 started
+                false
+            }
+            DisplayStatus::NewScanline => {
+                render::render_scanline(&mut self.ppu, &mut self.frame); // Mode 3 started
+                false
+            }
             DisplayStatus::NewFrame => {
                 // Mode 1 started (vblank)
-                //println!("Are we here?");
-                let creator = self.canvas.texture_creator();
-                let mut texture = creator
-                    .create_texture_target(PixelFormatEnum::RGB24, 160, 144)
-                    .unwrap();
-                texture.update(None, &self.frame.data, 160 * 3).unwrap();
-                self.canvas.copy(&texture, None, None).unwrap();
-                self.canvas.present();
+                true
             }
         }
     }
@@ -170,12 +163,11 @@ impl Bus {
         match addr {
             // Cartridge ROM bank 0
             0x0000..=0x3FFF => {
-                //self.cartridge.write_rom(addr as usize, data);
-                //panic!("Cannot write to Cartridge ROM bank 0 (0x0000 - 0x3FFF) with address {:04X} and value {:04X}", addr, data)
+                self.cartridge.write_bank0(addr, data);
             }
             // Cartridge ROM bank 01-NN. May be mapped
             0x4000..=0x7FFF => {
-                panic!("Cannot write to Cartridge ROM bank 01-NN (0x4000 - 0x7FFF) with address {:04X} and value {:04X}", addr, data)
+                self.cartridge.write_bankn(addr, data);
             }
             // VRAM
             0x8000..=0x9FFF => {

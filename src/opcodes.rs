@@ -76,10 +76,10 @@ lazy_static! {
         map.insert(0xc6, Opcode::new("ADD", TargetReg::A, TargetReg::Imm8, 2, 2));
 
         // add hl, r16
-        map.insert(0x09, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(0), 2, 1));
-        map.insert(0x19, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(1), 2, 1));
-        map.insert(0x29, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(2), 2, 1));
-        map.insert(0x39, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(3), 2, 1));
+        map.insert(0x09, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(0), 1, 2));
+        map.insert(0x19, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(1), 1, 2));
+        map.insert(0x29, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(2), 1, 2));
+        map.insert(0x39, Opcode::new("ADD", TargetReg::R16(2), TargetReg::R16(3), 1, 2));
 
         // add sp, r8
         map.insert(0xe8, Opcode::new("ADD", TargetReg::SP, TargetReg::Imm8, 2, 4));
