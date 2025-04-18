@@ -1,6 +1,7 @@
 use bitflags::bitflags;
 
 use crate::cartridge::Mapper;
+use crate::joypad::Joypad;
 use crate::ppu::{DisplayStatus, Ppu};
 use crate::render::{self, Frame};
 
@@ -24,6 +25,7 @@ pub struct Bus {
     pub cpu_ram: [u8; 0x2000], // not sure size of cpu ram
     pub hram: [u8; 0x7F],      // CPU high ram 0xFF80 - 0xFFFE
     pub cartridge: Box<dyn Mapper>,
+    pub joypad: Joypad,
     pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
     pub interrupt_flag: Interrupt,
     pub ppu: Ppu,
@@ -36,6 +38,7 @@ impl Bus {
             cpu_ram: [0; 0x2000],
             hram: [0; 0x7F],
             cartridge,
+            joypad: Joypad::new(),
             interrupt_enable: Interrupt::empty(),
             interrupt_flag: Interrupt::empty(),
             ppu: Ppu::new(),
@@ -136,7 +139,7 @@ impl Bus {
             }
             // IO Registers 0xFF00 - 0xFF7F
             // Joypad Input
-            0xFF00 => todo!("Implement Joypad input"),
+            0xFF00 => self.joypad.0,
             // Serial transfer
             0xFF01 | 0xFF02 => todo!("Implement serial transfer"),
             // Timer and divider
@@ -200,7 +203,9 @@ impl Bus {
             }
             // IO Registers 0xFF00 - 0xFF7F
             // Joypad Input
-            0xFF00 => {}
+            0xFF00 => {
+                self.joypad.0 = data;
+            }
             // Serial transfer
             0xFF01 | 0xFF02 => {}
             // Timer and divider
