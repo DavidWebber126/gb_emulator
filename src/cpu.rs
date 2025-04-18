@@ -698,7 +698,7 @@ impl Cpu {
                     // inc cycle count
                     // self.cycles += 1;
                     self.program_counter = (self.program_counter & 0xff00)
-                        + ((self.program_counter as u8).wrapping_add_signed(offset as i8)) as u16;
+                        + ((self.program_counter as u8).wrapping_add_signed(offset)) as u16;
                     //self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
                 }
             }

@@ -139,7 +139,7 @@ impl Bus {
             }
             // IO Registers 0xFF00 - 0xFF7F
             // Joypad Input
-            0xFF00 => self.joypad.0,
+            0xFF00 => self.joypad.read(),
             // Serial transfer
             0xFF01 | 0xFF02 => todo!("Implement serial transfer"),
             // Timer and divider
@@ -204,7 +204,7 @@ impl Bus {
             // IO Registers 0xFF00 - 0xFF7F
             // Joypad Input
             0xFF00 => {
-                self.joypad.0 = data;
+                self.joypad.write(data);
             }
             // Serial transfer
             0xFF01 | 0xFF02 => {}

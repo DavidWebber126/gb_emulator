@@ -34,8 +34,8 @@ pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
     eprintln!("Mapper is: {}", mapper);
     eprintln!("Rom Size: {}, Ram Size: {}", rom_size, ram_size);
     match mapper {
-        0 => Box::new(Mbc0::new(&raw, ram_size)),
-        1 => Box::new(Mbc1::new(&raw, rom_size, ram_size)),
+        0 => Box::new(Mbc0::new(raw, ram_size)),
+        1 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
         _ => panic!("Mapper value {} not implemented yet", mapper),
     }
 }
