@@ -34,9 +34,7 @@ pub fn setup() -> (Canvas<Window>, EventPump) {
 }
 
 // Create a "target" texture so that we can use our Renderer with it later
-pub fn dummy_texture(
-    creator: &TextureCreator<WindowContext>,
-) -> Result<Texture, String> {
+pub fn dummy_texture(creator: &TextureCreator<WindowContext>) -> Result<Texture, String> {
     let texture = creator
         .create_texture_target(PixelFormatEnum::RGB24, WIDTH as u32, HEIGHT as u32)
         .map_err(|e| e.to_string())?;

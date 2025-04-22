@@ -123,7 +123,7 @@ lazy_static! {
         map.insert(0xfe, Opcode::new("CP", TargetReg::A, TargetReg::Imm8, 2, 2));
 
         // cpl
-        map.insert(0x2f, Opcode::new("CPL", TargetReg::None, TargetReg::None, 2, 2));
+        map.insert(0x2f, Opcode::new("CPL", TargetReg::None, TargetReg::None, 1, 1));
 
         // daa
         map.insert(0x27, Opcode::new("DAA", TargetReg::None, TargetReg::None, 1, 1));

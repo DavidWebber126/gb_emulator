@@ -87,8 +87,9 @@ impl Bus {
     }
 
     pub fn tick(&mut self, cycles: u8) -> bool {
-        let (display_result, lcd_interrupt) = self.ppu.tick(cycles);
+        let (display_result, lcd_interrupt, vblank_interrupt) = self.ppu.tick(cycles);
         self.interrupt_flag.set(Interrupt::lcd, lcd_interrupt);
+        self.interrupt_flag.set(Interrupt::vblank, vblank_interrupt);
         match display_result {
             DisplayStatus::DoNothing => false,
             DisplayStatus::OAMScan => {
@@ -150,6 +151,8 @@ impl Bus {
             0xFF41 => self.ppu.read_status(),
             // LY
             0xFF44 => self.ppu.scanline,
+            // LYC
+            0xFF45 => self.ppu.lyc,
 
             // High RAM
             0xFF80..=0xFFFE => {

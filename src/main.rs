@@ -18,7 +18,7 @@ fn main() {
     let (mut canvas, mut event_pump) = sdl2_setup::setup();
     let texture_creator = canvas.texture_creator();
     let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
-    let bytes: Vec<u8> = std::fs::read("roms/tetris.gb").unwrap();
+    let bytes: Vec<u8> = std::fs::read("roms/01-special.gb").unwrap();
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);
@@ -37,7 +37,7 @@ fn main() {
 
         if let Some(frame) = frame {
             // present frame
-            texture.update(None, &frame.data, 256 * 3).unwrap();
+            texture.update(None, &frame.data, 160 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
 

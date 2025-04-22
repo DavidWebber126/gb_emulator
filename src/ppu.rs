@@ -37,8 +37,7 @@ bitflags! {
         const mode_zero_select = 0b0000_1000;
         // LYC == LY
         const compare = 0b0000_0100;
-        // PPU Mode
-        const ppu_mode = 0b0000_0011;
+        // PPU Mode last two bits. Not modeled here
     }
 }
 
@@ -128,7 +127,16 @@ impl Ppu {
     }
 
     pub fn read_status(&self) -> u8 {
-        self.status.bits()
+        let mut mode = match self.mode {
+            Mode::MODE0 => 0,
+            Mode::MODE1 => 1,
+            Mode::MODE2 => 2,
+            Mode::MODE3 => 3,
+        };
+        if !self.control.contains(Control::lcd_enable) {
+            mode = 0
+        }
+        self.status.bits() + mode
     }
 
     pub fn read_vram(&self, addr: u16) -> u8 {
@@ -172,10 +180,11 @@ impl Ppu {
     }
 
     // 456 cycles per scanline. 154 scanlines, last 10 (144-153 inclusive) are vblank
-    pub fn tick(&mut self, cycles: u8) -> (DisplayStatus, bool) {
+    // First bool is LCD interrupt, second is vblank interrupt
+    pub fn tick(&mut self, cycles: u8) -> (DisplayStatus, bool, bool) {
         self.cycle += cycles as usize;
         let prior_mode = self.mode;
-        let mut result: (DisplayStatus, bool) = (DisplayStatus::DoNothing, false);
+        let mut result: (DisplayStatus, bool, bool) = (DisplayStatus::DoNothing, false, false);
         if self.cycle > Ppu::SCANLINE_LENGTH {
             self.cycle %= Ppu::SCANLINE_LENGTH;
             self.scanline += 1;
@@ -187,17 +196,21 @@ impl Ppu {
             }
 
             // vblank has started
-            if self.scanline >= Ppu::MODE1_START {
+            if self.scanline == Ppu::MODE1_START {
                 self.mode = Mode::MODE1;
+                result.2 = true;
                 if self.status.contains(Status::mode_one_select) {
                     // Trigger LCD Interrupt through return
                     result.1 = true;
                 }
             }
 
-            if self.status.contains(Status::lyc_select) && self.scanline == self.lyc {
+            if self.scanline == self.lyc {
+                self.status.insert(Status::compare);
                 // Trigger LCD Interrupt through return
-                result.1 = true;
+                if self.status.contains(Status::lyc_select) {
+                    result.1 = true;
+                }
             }
         }
 

@@ -574,7 +574,7 @@ impl Cpu {
             }
             // 8 bit CP
             0xb8..=0xbf | 0xfe => {
-                let val = (self.reg_read(&opcode.reg2).unwrap() & 0x0f) as u8;
+                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
                 let _result = self.sub_u8(self.a, val, false);
             }
             // CPL
@@ -697,9 +697,7 @@ impl Cpu {
                 if should_execute {
                     // inc cycle count
                     // self.cycles += 1;
-                    self.program_counter = (self.program_counter & 0xff00)
-                        + ((self.program_counter as u8).wrapping_add_signed(offset)) as u16;
-                    //self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
+                    self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
                 }
             }
             // 8 bit LD r8 to r8
@@ -727,8 +725,6 @@ impl Cpu {
             0xf8 => {
                 let offset = self.reg_read(&opcode.reg2).unwrap() as u8;
                 let sum = self.add_u8(self.stack_pointer as u8, offset, false);
-                println!("Sum: {:02X}", sum);
-                println!("Val: {:04X}", 0xff00 + sum as u16);
                 self.set_hl((self.stack_pointer & 0xff00) + sum as u16);
                 self.flags.set(CpuFlag::zero, false);
                 self.flags.set(CpuFlag::subtraction, false);
@@ -889,7 +885,10 @@ impl Cpu {
     fn add_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {
         let (sum, c1) = arg1.overflowing_add(arg2);
         let (sum, c2) = sum.overflowing_add(carry as u8); // if either overflows we need to set carry flag
-                                                          // set n flag to 0.
+
+        // Set zero flags if sum is 0
+        self.flags.set(CpuFlag::zero, sum == 0);
+        // set n flag to 0.
         self.flags.remove(CpuFlag::subtraction);
         // set h flag if overflow occured at bit 3
         let half_carry = (arg1 & 0x0f) + (arg2 & 0x0f) + carry as u8;
@@ -903,7 +902,10 @@ impl Cpu {
     fn add_u16(&mut self, arg1: u16, arg2: u16, carry: bool) -> u16 {
         let (sum, c1) = arg1.overflowing_add(arg2);
         let (sum, c2) = sum.overflowing_add(carry as u16); // if either overflows we need to set carry flag
-                                                           // set n flag to 0.
+
+        // Set zero flags if sum is 0
+        self.flags.set(CpuFlag::zero, sum == 0);
+        // set n flag to 0.
         self.flags.remove(CpuFlag::subtraction);
         // set h flag if overflow occured at bit 11
         let half_carry = (arg1 & 0xf00) + (arg2 & 0xf00) + carry as u16;
