@@ -4,6 +4,7 @@ use crate::cartridge::Mapper;
 use crate::joypad::Joypad;
 use crate::ppu::{DisplayStatus, Ppu};
 use crate::render::{self, Frame};
+use crate::timer::Timer;
 
 bitflags! {
     #[derive(PartialEq, Debug, Clone)]
@@ -26,6 +27,7 @@ pub struct Bus {
     pub hram: [u8; 0x7F],      // CPU high ram 0xFF80 - 0xFFFE
     pub cartridge: Box<dyn Mapper>,
     pub joypad: Joypad,
+    pub timer: Timer,
     pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
     pub interrupt_flag: Interrupt,
     pub ppu: Ppu,
@@ -39,6 +41,7 @@ impl Bus {
             hram: [0; 0x7F],
             cartridge,
             joypad: Joypad::new(),
+            timer: Timer::new(),
             interrupt_enable: Interrupt::empty(),
             interrupt_flag: Interrupt::empty(),
             ppu: Ppu::new(),
@@ -87,9 +90,21 @@ impl Bus {
     }
 
     pub fn tick(&mut self, cycles: u8) -> bool {
+        // Timer
+        let timer_interrupt = self.timer.tick(cycles);
+        if timer_interrupt {
+            self.interrupt_flag.insert(Interrupt::timer);
+        }
+
+        // PPU
         let (display_result, lcd_interrupt, vblank_interrupt) = self.ppu.tick(cycles);
-        self.interrupt_flag.set(Interrupt::lcd, lcd_interrupt);
-        self.interrupt_flag.set(Interrupt::vblank, vblank_interrupt);
+        if lcd_interrupt {
+            self.interrupt_flag.insert(Interrupt::lcd);
+        }
+        if vblank_interrupt {
+            self.interrupt_flag.insert(Interrupt::vblank);
+        }
+
         match display_result {
             DisplayStatus::DoNothing => false,
             DisplayStatus::OAMScan => {
@@ -143,8 +158,10 @@ impl Bus {
             0xFF00 => self.joypad.read(),
             // Serial transfer
             0xFF01 | 0xFF02 => todo!("Implement serial transfer"),
-            // Timer and divider
-            0xFF04..=0xFF07 => todo!("Implement timer and divider"),
+            0xFF04 => self.timer.divider_counter,
+            0xFF05 => self.timer.timer_counter,
+            0xFF06 => self.timer.timer_modulo,
+            0xFF07 => self.timer.tac_read(),
             // Interrupts
             0xFF0F => self.interrupt_flag.bits(),
             0xFF40 => self.ppu.read_ctrl(),
@@ -211,8 +228,22 @@ impl Bus {
             }
             // Serial transfer
             0xFF01 | 0xFF02 => {}
-            // Timer and divider
-            0xFF04..=0xFF07 => {}
+            0xFF04 => {
+                self.timer.divider_counter = 0;
+            }
+            0xFF05 => {
+                self.timer.timer_counter = data;
+            } // do nothing
+            0xFF06 => {
+                self.timer.timer_modulo = data;
+            }
+            0xFF07 => {
+                self.timer.tac_write(data);
+            }
+            // Interrupts
+            0xFF0F => {
+                self.interrupt_flag = Interrupt::from_bits_retain(data & 0b0001_1111);
+            }
             // Sound channel 1 sweep
             0xFF10 => {}
             // Sound channel 1 volume & envelope
@@ -235,10 +266,6 @@ impl Bus {
             0xFF25 => {}
             // Sound on/off
             0xFF26 => {}
-            // Interrupts
-            0xFF0F => {
-                self.interrupt_flag = Interrupt::from_bits_retain(data);
-            }
             // PPU Registers
             // LCD Control
             0xFF40 => self.ppu.write_to_ctrl(data),
@@ -289,7 +316,7 @@ impl Bus {
             }
             // Interrupt Enable
             0xFFFF => {
-                self.interrupt_enable = Interrupt::from_bits_retain(data);
+                self.interrupt_enable = Interrupt::from_bits_retain(data & 0b0001_1111);
             }
             _ => panic!("Address {:04X} not used in memory map", addr),
         }

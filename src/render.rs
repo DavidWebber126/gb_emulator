@@ -26,7 +26,7 @@ impl Frame {
         }
     }
 
-    pub fn get_pixel(&self, x: usize, y: usize) -> (u8, u8, u8) {
+    pub fn _get_pixel(&self, x: usize, y: usize) -> (u8, u8, u8) {
         let base = y * 3 * Frame::WIDTH + x * 3;
         (self.data[base], self.data[base + 1], self.data[base + 2])
     }
@@ -65,7 +65,7 @@ fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
     };
     let tile_x = x_pos / 8;
     let tile_y = y_pos / 8;
-    let x_p = (x_pos % 8) as u8;
+    let x_p = 7 - (x_pos % 8) as u8;
     let y_p = (y_pos % 8) as u8;
     (
         ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16),

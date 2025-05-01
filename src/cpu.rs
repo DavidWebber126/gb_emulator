@@ -34,6 +34,7 @@ pub struct Cpu {
     pub ime: bool,
     pub bus: Bus,
     pub prefixed_mode: bool,
+    pub halted: bool,
     pub frame_ready: bool,
 }
 
@@ -52,6 +53,7 @@ impl Cpu {
             program_counter: 0x0100,
             ime: false,
             bus,
+            halted: false,
             prefixed_mode: false,
             frame_ready: false,
         }
@@ -95,8 +97,8 @@ impl Cpu {
     }
 
     fn push_u8_to_stack(&mut self, val: u8) {
-        self.bus.mem_write(self.stack_pointer, val);
         self.stack_pointer -= 1;
+        self.bus.mem_write(self.stack_pointer, val);
     }
 
     fn push_u16_to_stack(&mut self, val: u16) {
@@ -111,7 +113,7 @@ impl Cpu {
     // }
 
     fn pop_u16_from_stack(&mut self) -> u16 {
-        let val = self.bus.mem_read_u16(self.stack_pointer + 1);
+        let val = self.bus.mem_read_u16(self.stack_pointer);
         self.stack_pointer += 2;
         val
     }
@@ -184,13 +186,15 @@ impl Cpu {
             }
             2 => {
                 let addr = self.get_hl();
+                let val = self.bus.mem_read(addr) as u16;
                 self.set_hl(addr.wrapping_add(1));
-                self.bus.mem_read(addr) as u16
+                val
             }
             3 => {
                 let addr = self.get_hl();
+                let val = self.bus.mem_read(addr) as u16;
                 self.set_hl(addr.wrapping_sub(1));
-                self.bus.mem_read(addr) as u16
+                val
             }
             _ => panic!("Invalid r16 Register: {}", reg),
         }
@@ -297,23 +301,36 @@ impl Cpu {
 
     fn interrupt_check(&mut self) {
         // Interrupt is serviced is IME is set, bit is set in both IE and IF flags
-        let vblank_interrupt = self.ime && self.bus.vblank_flag() && self.bus.vblank_enabled();
-        let lcd_interrupt = self.ime && self.bus.lcd_flag() && self.bus.lcd_enabled();
-        let timer_interrupt = self.ime && self.bus.timer_flag() && self.bus.timer_enabled();
-        let serial_interrupt = self.ime && self.bus.serial_flag() && self.bus.serial_enabled();
-        let joypad_interrupt = self.ime && self.bus.joypad_flag() && self.bus.joypad_enabled();
+        let vblank_interrupt = self.bus.vblank_flag() && self.bus.vblank_enabled();
+        let lcd_interrupt = self.bus.lcd_flag() && self.bus.lcd_enabled();
+        let timer_interrupt = self.bus.timer_flag() && self.bus.timer_enabled();
+        let serial_interrupt = self.bus.serial_flag() && self.bus.serial_enabled();
+        let joypad_interrupt = self.bus.joypad_flag() && self.bus.joypad_enabled();
 
-        // Vblank has highest priority, Joypad has lowest priority. Only handle one interrupt at a time
-        // Turn off interrupts then handle the current interrupt by priority
-        if vblank_interrupt
+        let interrupt_pending = vblank_interrupt
             || lcd_interrupt
             || timer_interrupt
             || serial_interrupt
-            || joypad_interrupt
-        {
-            self.ime = false;
-            self.push_u16_to_stack(self.program_counter);
+            || joypad_interrupt;
+
+        // Vblank has highest priority, Joypad has lowest priority. Only handle one interrupt at a time
+        // Turn off interrupts then handle the current interrupt by priority
+        match (self.halted, self.ime, interrupt_pending) {
+            (_, _, false) => {}
+            (false, false, true) => {}
+            (_, true, true) => {
+                self.ime = false;
+                self.halted = false;
+                self.push_u16_to_stack(self.program_counter);
+            }
+            (true, false, true) => {
+                self.halted = false;
+                self.program_counter += 1;
+                return; // return early to avoid interrupt handling this case
+            }
         }
+
+        // Interrupt handler
         if vblank_interrupt {
             self.bus.interrupt_flag.set(Interrupt::vblank, false);
             self.program_counter = 0x0040;
@@ -338,40 +355,28 @@ impl Cpu {
     where
         F: FnMut(&mut Cpu),
     {
-        callback(self);
-
-        // check for interrupts
+        // check for interrupts or halt
         self.interrupt_check();
 
+        callback(self);
+
         // Get opcode from prefixed or regular
-        let (_result, cycles, bytes) = if self.prefixed_mode {
+        let (cycles, bytes) = if self.prefixed_mode {
             let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
-            let opcode_num = self.bus.mem_read(self.program_counter);
+            let opcode_num = self.bus.mem_read(self.program_counter + 1);
             let opcode = opcodes.get(&opcode_num).unwrap();
 
             self.prefixed_mode = false;
-
-            (
-                self.prefixed_opcodes(opcode_num, opcode),
-                opcode.cycles,
-                opcode.bytes,
-            )
+            self.prefixed_opcodes(opcode_num, opcode);
+            (opcode.cycles, opcode.bytes)
         } else {
             let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_OP_CODES;
             let opcode_num = self.bus.mem_read(self.program_counter);
             let opcode = opcodes.get(&opcode_num).unwrap();
 
-            (
-                self.non_prefixed_opcodes(opcode_num, opcode),
-                opcode.cycles,
-                opcode.bytes,
-            )
+            self.non_prefixed_opcodes(opcode_num, opcode);
+            (opcode.cycles, opcode.bytes)
         };
-
-        // Error handling from opcode. Break if halt
-        // if result.is_err() {
-        //     break;
-        // }
 
         self.frame_ready = self.bus.tick(cycles);
         self.program_counter = self.program_counter.wrapping_add(bytes);
@@ -396,7 +401,7 @@ impl Cpu {
         })
     }
 
-    fn prefixed_opcodes(&mut self, byte: u8, opcode: &Opcode) -> Result<(), &str> {
+    fn prefixed_opcodes(&mut self, byte: u8, opcode: &Opcode) {
         match byte {
             // bit u3, r8
             0x40..=0x7f => {
@@ -507,10 +512,9 @@ impl Cpu {
                 self.flags.set(CpuFlag::carry, false);
             }
         };
-        Ok(())
     }
 
-    fn non_prefixed_opcodes(&mut self, byte: u8, opcode: &Opcode) -> Result<(), &str> {
+    fn non_prefixed_opcodes(&mut self, byte: u8, opcode: &Opcode) {
         match byte {
             // 8 bit ADC
             0x88..=0x8f | 0xce => {
@@ -585,28 +589,24 @@ impl Cpu {
             }
             // DAA
             0x27 => {
-                let mut should_carry = self.flags.contains(CpuFlag::carry);
-                let sub_flag = self.flags.contains(CpuFlag::subtraction);
-                if sub_flag {
-                    let mut adjust = 0;
-                    adjust += 0x06 * (self.flags.contains(CpuFlag::half_carry) as u8);
-                    adjust += 0x60 * (self.flags.contains(CpuFlag::carry) as u8);
-                    self.a = self.sub_u8(self.a, adjust, false);
+                if self.flags.contains(CpuFlag::subtraction) {
+                    if self.flags.contains(CpuFlag::half_carry) {
+                        self.a = self.a.wrapping_sub(0x06);
+                    }
+                    if self.flags.contains(CpuFlag::carry) {
+                        self.a = self.a.wrapping_sub(0x60);
+                    };
                 } else {
-                    let mut adjust = 0;
                     if self.flags.contains(CpuFlag::half_carry) || self.a & 0x0f > 0x09 {
-                        adjust += 0x06;
+                        self.a = self.a.wrapping_add(0x06);
                     }
                     if self.flags.contains(CpuFlag::carry) || self.a > 0x99 {
-                        adjust += 0x60;
-                        should_carry = true;
+                        self.a = self.a.wrapping_add(0x60);
+                        self.flags.set(CpuFlag::carry, true);
                     }
-                    self.a += adjust;
                 }
                 self.flags.set(CpuFlag::zero, self.a == 0);
-                self.flags.set(CpuFlag::subtraction, sub_flag);
                 self.flags.set(CpuFlag::half_carry, false);
-                self.flags.set(CpuFlag::carry, should_carry);
             }
             // 8 bit DEC
             0x05 | 0x0d | 0x15 | 0x1d | 0x25 | 0x2d | 0x35 | 0x3d => {
@@ -633,7 +633,9 @@ impl Cpu {
                 self.ime = true;
             }
             // HALT
-            0x76 => return Err("HALT Opcode Reached"),
+            0x76 => {
+                self.halted = true;
+            }
             // 8 bit INC
             0x04 | 0x0c | 0x14 | 0x1c | 0x24 | 0x2c | 0x34 | 0x3c => {
                 let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
@@ -690,7 +692,7 @@ impl Cpu {
                 let should_execute = match cond {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
-                    2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
+                    2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is not set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
                     _ => panic!("Condition Codes are 0-3. Received {}", cond),
                 };
@@ -737,8 +739,7 @@ impl Cpu {
             // LDH imm8, A
             0xe0 => {
                 let addr_lo = self.reg_read(&opcode.reg1).unwrap();
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.bus.mem_write(0xff00 + (addr_lo & 0x00ff), val);
+                self.bus.mem_write(0xff00 + (addr_lo & 0x00ff), self.a);
             }
             // LDH A, imm8
             0xf0 => {
@@ -761,9 +762,14 @@ impl Cpu {
                 self.flags.remove(CpuFlag::carry);
             }
             // POP
-            0xc1 | 0xd1 | 0xe1 | 0xf1 => {
+            0xc1 | 0xd1 | 0xe1 => {
                 let val = self.pop_u16_from_stack();
                 self.reg_write(&opcode.reg1, val);
+            }
+            // POP AF
+            0xf1 => {
+                let val = self.pop_u16_from_stack();
+                self.set_af(val & 0xfff0);
             }
             // PUSH
             0xc5 | 0xd5 | 0xe5 | 0xf5 => {
@@ -780,7 +786,7 @@ impl Cpu {
                 let should_execute = match condition {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
-                    2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
+                    2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is not set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
                     _ => panic!("Condition Codes are 0-3. Received {}", condition),
                 };
@@ -817,7 +823,7 @@ impl Cpu {
             }
             // RRA
             0x1f => {
-                let right_bit_set = self.a & 0b1 != 0;
+                let right_bit_set = self.a & 0b1 > 0;
                 self.a >>= 1;
                 self.a += (self.flags.contains(CpuFlag::carry) as u8) << 7;
                 self.flags.remove(CpuFlag::zero);
@@ -873,13 +879,13 @@ impl Cpu {
             // Prefixed
             0xcb => {
                 self.prefixed_mode = true;
+                //self.program_counter += 1;
             }
             _ => panic!(
                 "Opcode: {:02X} '{}' is not implemented yet",
                 byte, opcode.name
             ),
         };
-        Ok(())
     }
 
     fn add_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {

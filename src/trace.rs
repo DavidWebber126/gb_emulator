@@ -6,16 +6,18 @@ pub fn trace_cpu(cpu: &mut Cpu) {
     // Get number of bytes from current opcode
     let pc = cpu.program_counter;
     let opcode_byte = cpu.bus.mem_read(pc);
-    let opcode = if cpu.prefixed_mode {
+    let (opcode, opcode_name) = if cpu.prefixed_mode {
         let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
         let opcode = opcodes.get(&opcode_byte).unwrap();
-        opcode
+        let actual_op = cpu.bus.mem_read(pc + 1);
+        let opcode_name = opcodes.get(&actual_op).unwrap();
+        (opcode, opcode_name.name)
     } else {
         let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_OP_CODES;
         let opcode = opcodes
             .get(&opcode_byte)
             .unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_byte));
-        opcode
+        (opcode, opcode.name)
     };
 
     // Get all bytes involved in the opcode
@@ -36,16 +38,19 @@ pub fn trace_cpu(cpu: &mut Cpu) {
 
     // Print out formatted log
     let log = format!(
-        "{:04X}    {:<8}  {:<5}  AF: {:04X}, BC: {:04X}, DE: {:04X}, HL: {:04X}, SP: {:04X} CB: {}",
+        "{:04X}    {:<8}  {:<5}  AF: {:04X}, BC: {:04X}, DE: {:04X}, HL: {:04X}, SP: {:04X} CB: {} IME: {} IF: {:02X} IE: {:02X}",
         cpu.program_counter,
         opcode_format,
-        opcode.name,
+        opcode_name,
         cpu.get_af(),
         cpu.get_bc(),
         cpu.get_de(),
         cpu.get_hl(),
         cpu.stack_pointer,
         cpu.prefixed_mode,
+        cpu.ime,
+        cpu.bus.interrupt_flag,
+        cpu.bus.interrupt_enable,
     );
     println!("{}", log);
 }

@@ -151,7 +151,7 @@ lazy_static! {
         map.insert(0xfb, Opcode::new("EI", TargetReg::None, TargetReg::None, 1, 1));
 
         // halt
-        map.insert(0x76, Opcode::new("HALT", TargetReg::None, TargetReg::None, 1, 0));
+        map.insert(0x76, Opcode::new("HALT", TargetReg::None, TargetReg::None, 0, 1));
 
         // inc r8
         map.insert(0x04, Opcode::new("INC", TargetReg::R8(0), TargetReg::None, 1, 1));
