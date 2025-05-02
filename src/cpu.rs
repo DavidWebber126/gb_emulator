@@ -317,7 +317,9 @@ impl Cpu {
         // Turn off interrupts then handle the current interrupt by priority
         match (self.halted, self.ime, interrupt_pending) {
             (_, _, false) => {}
-            (false, false, true) => {}
+            (false, false, true) => {
+                return; // return early to avoid interrupt handling this case
+            }
             (_, true, true) => {
                 self.ime = false;
                 self.halted = false;

@@ -19,8 +19,7 @@ fn main() {
     let (mut canvas, mut event_pump) = sdl2_setup::setup();
     let texture_creator = canvas.texture_creator();
     let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
-    let bytes: Vec<u8> =
-        std::fs::read("roms/02-interrupts.gb").expect("No ROM File with that name");
+    let bytes: Vec<u8> = std::fs::read("roms/03-op sp,hl.gb").expect("No ROM File with that name");
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);

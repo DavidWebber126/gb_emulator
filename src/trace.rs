@@ -38,7 +38,7 @@ pub fn trace_cpu(cpu: &mut Cpu) {
 
     // Print out formatted log
     let log = format!(
-        "{:04X}    {:<8}  {:<5}  AF: {:04X}, BC: {:04X}, DE: {:04X}, HL: {:04X}, SP: {:04X} CB: {} IME: {} IF: {:02X} IE: {:02X}",
+        "{:04X}    {:<8}  {:<5}  AF: {:04X}, BC: {:04X}, DE: {:04X}, HL: {:04X}, SP: {:04X} CB: {} IME: {} HALT: {} IF: {:02X} IE: {:02X}",
         cpu.program_counter,
         opcode_format,
         opcode_name,
@@ -49,6 +49,7 @@ pub fn trace_cpu(cpu: &mut Cpu) {
         cpu.stack_pointer,
         cpu.prefixed_mode,
         cpu.ime,
+        cpu.halted,
         cpu.bus.interrupt_flag,
         cpu.bus.interrupt_enable,
     );
