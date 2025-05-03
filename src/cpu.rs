@@ -860,7 +860,7 @@ impl Cpu {
             // 8 bit SBC
             0x98..=0x9f | 0xde => {
                 let reg = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.sub_u8(self.a, reg, true);
+                self.a = self.sub_u8(self.a, reg, true);
             }
             // SCF
             0x37 => {
@@ -898,15 +898,16 @@ impl Cpu {
     }
 
     fn add_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {
+        let c = (carry && self.flags.contains(CpuFlag::carry)) as u8;
         let (sum, c1) = arg1.overflowing_add(arg2);
-        let (sum, c2) = sum.overflowing_add(carry as u8); // if either overflows we need to set carry flag
+        let (sum, c2) = sum.overflowing_add(c); // if either overflows we need to set carry flag
 
         // Set zero flags if sum is 0
         self.flags.set(CpuFlag::zero, sum == 0);
         // set n flag to 0.
         self.flags.remove(CpuFlag::subtraction);
         // set h flag if overflow occured at bit 3
-        let half_carry = (arg1 & 0x0f) + (arg2 & 0x0f) + carry as u8;
+        let half_carry = (arg1 & 0x0f) + (arg2 & 0x0f) + c;
         self.flags.set(CpuFlag::half_carry, half_carry & 0xf0 > 0);
         // set c flag if overflow occured at bit 7
         self.flags.set(CpuFlag::carry, c1 | c2);
@@ -936,11 +937,17 @@ impl Cpu {
     }
 
     fn sub_u8(&mut self, arg1: u8, arg2: u8, carry: bool) -> u8 {
-        let result = self.add_u8(arg1, (!arg2).wrapping_add(1), carry);
+        let c = (carry && self.flags.contains(CpuFlag::carry)) as u8;
+        let (sum, c1) = arg1.overflowing_sub(arg2);
+        let (sum, c2) = sum.overflowing_sub(c);
+
+        self.flags.set(CpuFlag::zero, sum == 0);
         self.flags.set(CpuFlag::subtraction, true);
-        self.flags.toggle(CpuFlag::carry);
-        self.flags.toggle(CpuFlag::half_carry);
-        result
+        self.flags.set(CpuFlag::carry, c1 | c2);
+        let half_carry = (arg1 & 0x0f).wrapping_sub(arg2 & 0x0f).wrapping_sub(c as u8) & 0x10 > 0;
+        self.flags.set(CpuFlag::half_carry, half_carry);
+
+        sum
     }
 
     fn add_e8(&mut self, arg1: u16, arg2: u8) -> u16 {
