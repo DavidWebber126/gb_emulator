@@ -176,7 +176,7 @@ lazy_static! {
         map.insert(0xc2, Opcode::new("JP", TargetReg::Cond(0), TargetReg::Imm16, 3, 3));
         map.insert(0xca, Opcode::new("JP", TargetReg::Cond(1), TargetReg::Imm16, 3, 3));
         map.insert(0xd2, Opcode::new("JP", TargetReg::Cond(2), TargetReg::Imm16, 3, 3));
-        map.insert(0xda, Opcode::new("JP", TargetReg::Cond(2), TargetReg::Imm16, 3, 3));
+        map.insert(0xda, Opcode::new("JP", TargetReg::Cond(3), TargetReg::Imm16, 3, 3));
 
         // jp hl
         map.insert(0xe9, Opcode::new("JP", TargetReg::R16(2), TargetReg::None, 1, 1));
@@ -694,8 +694,8 @@ lazy_static! {
         map.insert(0xff, Opcode::new("SET", TargetReg::B3(7), TargetReg::R8(7), 2, 2));
 
         // sla r8
-        map.insert(0x20, Opcode::new("SLA", TargetReg::R8(1), TargetReg::None, 2, 2));
-        map.insert(0x21, Opcode::new("SLA", TargetReg::R8(0), TargetReg::None, 2, 2));
+        map.insert(0x20, Opcode::new("SLA", TargetReg::R8(0), TargetReg::None, 2, 2));
+        map.insert(0x21, Opcode::new("SLA", TargetReg::R8(1), TargetReg::None, 2, 2));
         map.insert(0x22, Opcode::new("SLA", TargetReg::R8(2), TargetReg::None, 2, 2));
         map.insert(0x23, Opcode::new("SLA", TargetReg::R8(3), TargetReg::None, 2, 2));
         map.insert(0x24, Opcode::new("SLA", TargetReg::R8(4), TargetReg::None, 2, 2));

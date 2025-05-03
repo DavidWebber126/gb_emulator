@@ -428,6 +428,8 @@ impl Cpu {
                 val += carry as u8;
                 self.reg_write(&opcode.reg1, val as u16);
                 self.flags.set(CpuFlag::zero, val == 0);
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
                 self.flags.set(CpuFlag::carry, left_bit);
             }
             // rlc r8
@@ -438,6 +440,8 @@ impl Cpu {
                 val += left_bit as u8;
                 self.reg_write(&opcode.reg1, val as u16);
                 self.flags.set(CpuFlag::zero, val == 0);
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
                 self.flags.set(CpuFlag::carry, left_bit);
             }
             // rr r8
@@ -449,6 +453,8 @@ impl Cpu {
                 val += (carry as u8) << 7;
                 self.reg_write(&opcode.reg1, val as u16);
                 self.flags.set(CpuFlag::zero, val == 0);
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
                 self.flags.set(CpuFlag::carry, right_bit);
             }
             // rrc r8
@@ -459,6 +465,8 @@ impl Cpu {
                 val += (right_bit as u8) << 7;
                 self.reg_write(&opcode.reg1, val as u16);
                 self.flags.set(CpuFlag::zero, val == 0);
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
                 self.flags.set(CpuFlag::carry, right_bit);
             }
             // set u3, r8
@@ -583,6 +591,8 @@ impl Cpu {
             }
             // CCF
             0x3f => {
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
                 self.flags.toggle(CpuFlag::carry);
             }
             // 8 bit CP
@@ -864,6 +874,8 @@ impl Cpu {
             }
             // SCF
             0x37 => {
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
                 self.flags.set(CpuFlag::carry, true);
             }
             // STOP
@@ -944,7 +956,11 @@ impl Cpu {
         self.flags.set(CpuFlag::zero, sum == 0);
         self.flags.set(CpuFlag::subtraction, true);
         self.flags.set(CpuFlag::carry, c1 | c2);
-        let half_carry = (arg1 & 0x0f).wrapping_sub(arg2 & 0x0f).wrapping_sub(c as u8) & 0x10 > 0;
+        let half_carry = (arg1 & 0x0f)
+            .wrapping_sub(arg2 & 0x0f)
+            .wrapping_sub(c)
+            & 0x10
+            > 0;
         self.flags.set(CpuFlag::half_carry, half_carry);
 
         sum
