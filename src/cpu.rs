@@ -320,9 +320,13 @@ impl Cpu {
             (false, false, true) => {
                 return; // return early to avoid interrupt handling this case
             }
-            (_, true, true) => {
+            (true, true, true) => {
                 self.ime = false;
                 self.halted = false;
+                self.push_u16_to_stack(self.program_counter + 1);
+            }
+            (false, true, true) => {
+                self.ime = false;
                 self.push_u16_to_stack(self.program_counter);
             }
             (true, false, true) => {

@@ -105,6 +105,12 @@ impl Bus {
             self.interrupt_flag.insert(Interrupt::vblank);
         }
 
+        // Joypad (check for interrupt)
+        if self.joypad.interrupt {
+            self.joypad.interrupt = false;
+            self.interrupt_flag.insert(Interrupt::joypad);
+        }
+
         match display_result {
             DisplayStatus::DoNothing => false,
             DisplayStatus::OAMScan => {

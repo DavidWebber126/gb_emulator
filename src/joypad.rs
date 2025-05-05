@@ -12,6 +12,7 @@ pub struct Joypad {
     pub dpad_mode: bool,
     pub select: SelectButtons,
     pub dpad: Dpad,
+    pub interrupt: bool,
 }
 
 impl Joypad {
@@ -21,6 +22,7 @@ impl Joypad {
             dpad_mode: false,
             select: SelectButtons(0x0f),
             dpad: Dpad(0x0f),
+            interrupt: false,
         }
     }
 
@@ -41,11 +43,18 @@ impl Joypad {
     }
 
     // mode = true => select_mode, mode = false => dpad_mode
+    // High to low (i.e button pressed = true) causes an interrupt
     pub fn button_pressed_status(&mut self, mode: bool, button: u8, pressed: bool) {
         match (mode, pressed) {
-            (true, true) => self.select.0 &= !button,
+            (true, true) => {
+                self.interrupt = true;
+                self.select.0 &= !button;
+            }
             (true, false) => self.select.0 |= button,
-            (false, true) => self.dpad.0 &= !button,
+            (false, true) => {
+                self.interrupt = true;
+                self.dpad.0 &= !button;
+            }
             (false, false) => self.dpad.0 |= button,
         }
     }

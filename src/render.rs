@@ -150,10 +150,7 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
             get_pixel_data(ppu, x_pos, y_pos, tile_index, true)
         };
 
-        //eprintln!("Palette: {:02X}, obj_id: {:02X}",ppu.obp0, obj_id);
-        if sprite_attr & 0b1000_0000 > 0 && pixel_id != 0 {
-            None
-        } else if obj_id < 2 {
+        if (sprite_attr & 0b1000_0000 > 0 && pixel_id != 0) || obj_id < 2 {
             None
         } else if sprite_attr & 0b0001_0000 > 0 {
             Some((ppu.obp1 & (0b11 << (2 * obj_id))) >> (2 * obj_id))
@@ -166,9 +163,7 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
 
     // Decide which has priority and draw to Frame
     let pixel = match (ppu.control.contains(Control::obj_enable), obj_pixel) {
-        (_, Some(obj_pixel)) => {
-            GB_PALETTE[obj_pixel as usize]
-        }
+        (_, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
         _ => {
             if ppu.control.contains(Control::bg_win_enable) {
                 GB_PALETTE[bg_pixel as usize]
