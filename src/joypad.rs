@@ -19,8 +19,8 @@ impl Joypad {
         Self {
             select_mode: false,
             dpad_mode: false,
-            select: SelectButtons(0),
-            dpad: Dpad(0),
+            select: SelectButtons(0x0f),
+            dpad: Dpad(0x0f),
         }
     }
 
@@ -37,7 +37,7 @@ impl Joypad {
 
     pub fn write(&mut self, val: u8) {
         self.select_mode = val & 0b0010_0000 > 0;
-        self.dpad_mode = val & 0b0010_0000 > 0;
+        self.dpad_mode = val & 0b0001_0000 > 0;
     }
 
     // mode = true => select_mode, mode = false => dpad_mode

@@ -65,7 +65,7 @@ fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
     };
     let tile_x = x_pos / 8;
     let tile_y = y_pos / 8;
-    let x_p = 7 - (x_pos % 8) as u8;
+    let x_p = (x_pos % 8) as u8;
     let y_p = (y_pos % 8) as u8;
     (
         ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16),
@@ -104,8 +104,9 @@ fn get_pixel_data(ppu: &Ppu, x: u8, y: u8, tile_id: u8, is_obj: bool) -> u8 {
     } else {
         0x8000 + 16 * (tile_id as u16) + 0x1000 * (adjust as u16)
     };
-    let lo = (ppu.read_vram(tile_base + 2 * y) & (1 << x)) > 0;
-    let hi = (ppu.read_vram(tile_base + 2 * y + 1) & (1 << x)) > 0;
+    let inverted_x = 7 - x; // Invert so that x=0 corresponds to bit 7 of color index
+    let lo = (ppu.read_vram(tile_base + 2 * y) & (1 << inverted_x)) > 0;
+    let hi = (ppu.read_vram(tile_base + 2 * y + 1) & (1 << inverted_x)) > 0;
     match (lo, hi) {
         (false, false) => 0,
         (true, false) => 1,
@@ -137,7 +138,7 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
         let sprite_attr = ppu.oam[4 * sprite_index + 3];
 
         if sprite_attr & 0b0010_0000 > 0 {
-            x_pos = 8 - x_pos;
+            x_pos = 7 - x_pos;
         }
         if sprite_attr & 0b0100_0000 > 0 {
             y_pos = 8 + (8 * ppu.control.contains(Control::obj_size) as u8) - y_pos;
@@ -149,12 +150,15 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
             get_pixel_data(ppu, x_pos, y_pos, tile_index, true)
         };
 
-        if sprite_attr & 0b1000_0000 > 0 {
+        //eprintln!("Palette: {:02X}, obj_id: {:02X}",ppu.obp0, obj_id);
+        if sprite_attr & 0b1000_0000 > 0 && pixel_id != 0 {
+            None
+        } else if obj_id < 2 {
             None
         } else if sprite_attr & 0b0001_0000 > 0 {
-            Some(ppu.obp1 & (0b11 << (2 * obj_id)) >> (2 * obj_id))
+            Some((ppu.obp1 & (0b11 << (2 * obj_id))) >> (2 * obj_id))
         } else {
-            Some(ppu.obp0 & (0b11 << (2 * obj_id)) >> (2 * obj_id))
+            Some((ppu.obp0 & (0b11 << (2 * obj_id))) >> (2 * obj_id))
         }
     } else {
         None
@@ -162,7 +166,9 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
 
     // Decide which has priority and draw to Frame
     let pixel = match (ppu.control.contains(Control::obj_enable), obj_pixel) {
-        (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
+        (_, Some(obj_pixel)) => {
+            GB_PALETTE[obj_pixel as usize]
+        }
         _ => {
             if ppu.control.contains(Control::bg_win_enable) {
                 GB_PALETTE[bg_pixel as usize]

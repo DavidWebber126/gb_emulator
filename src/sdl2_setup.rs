@@ -46,14 +46,15 @@ lazy_static! {
     static ref KEY_MAP: HashMap<Keycode, (bool, u8)> = {
         let mut key_map = HashMap::new();
 
-        key_map.insert(Keycode::Down, (true, 0b0000_1000));
-        key_map.insert(Keycode::Up, (true, 0b0000_0100));
-        key_map.insert(Keycode::Left, (true, 0b0000_0010));
-        key_map.insert(Keycode::Right, (true, 0b0000_0001));
-        key_map.insert(Keycode::Return, (false, 0b0000_1000));
-        key_map.insert(Keycode::Space, (false, 0b0000_0100));
-        key_map.insert(Keycode::B, (false, 0b0000_0010));
-        key_map.insert(Keycode::A, (false, 0b0000_0001));
+        // true = select mode, false = dpad mode
+        key_map.insert(Keycode::Down, (false, 0b0000_1000));
+        key_map.insert(Keycode::Up, (false, 0b0000_0100));
+        key_map.insert(Keycode::Left, (false, 0b0000_0010));
+        key_map.insert(Keycode::Right, (false, 0b0000_0001));
+        key_map.insert(Keycode::Return, (true, 0b0000_1000));
+        key_map.insert(Keycode::Space, (true, 0b0000_0100));
+        key_map.insert(Keycode::B, (true, 0b0000_0010));
+        key_map.insert(Keycode::A, (true, 0b0000_0001));
 
         key_map
     };

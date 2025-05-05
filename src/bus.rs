@@ -170,6 +170,8 @@ impl Bus {
             0xFF44 => self.ppu.scanline,
             // LYC
             0xFF45 => self.ppu.lyc,
+            // KEY1 (CGB only)
+            0xFF4D => 0,
 
             // High RAM
             0xFF80..=0xFFFE => {
@@ -178,7 +180,7 @@ impl Bus {
             }
             // Interrupt Enable
             0xFFFF => self.interrupt_enable.bits(),
-            _ => panic!("Address {} not used in memory map", addr),
+            _ => panic!("Address {:04X} not used in memory map", addr),
         }
     }
 
@@ -246,18 +248,38 @@ impl Bus {
             }
             // Sound channel 1 sweep
             0xFF10 => {}
+            // Sound channel 1 length timer & duty cycle
+            0xFF11 => {}
             // Sound channel 1 volume & envelope
             0xFF12 => {}
+            // Sound channel 1 period low
+            0xFF13 => {}
             // Sound channel 1 period high & control
             0xFF14 => {}
+            // Sound channel 2 length timer & duty cycle
+            0xFF16 => {}
             // Sound channel 2 volume & envelope
             0xFF17 => {}
+            // Sound channel 2 period low
+            0xFF18 => {}
             // Sound channel 2 period high & control
             0xFF19 => {}
             // Sound channel 3 DAC enable
             0xFF1A => {}
+            // Sound channel 3 length timer
+            0xFF1B => {}
+            // Sound channel 3 output level
+            0xFF1C => {}
+            // Sound channel 3 period low
+            0xFF1D => {}
+            // Sound channel 3 period high & control
+            0xFF1E => {}
+            // Sound channel 4 length timer
+            0xFF20 => {}
             // Sound channel 4 volume & envelope
             0xFF21 => {}
+            // Sound channel 4 frequency & randomness
+            0xFF22 => {}
             // Sound channel 4 control
             0xFF23 => {}
             // Master volume & VIN panning
@@ -266,6 +288,8 @@ impl Bus {
             0xFF25 => {}
             // Sound on/off
             0xFF26 => {}
+            // Wave RAM
+            0xFF30..=0xFF3F => {}
             // PPU Registers
             // LCD Control
             0xFF40 => self.ppu.write_to_ctrl(data),
@@ -302,6 +326,8 @@ impl Bus {
             0xFF4A => self.ppu.wy = data,
             // Window X position
             0xFF4B => self.ppu.wx = data,
+            // KEY1 (CGB only)
+            0xFF4D => {}
             // BCPS/BGPI: Background color palette specification
             0xFF68 => self.ppu.bcps = data,
             // BCPD/BGPD: Background color palette data

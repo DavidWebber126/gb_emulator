@@ -608,22 +608,26 @@ impl Cpu {
             }
             // DAA
             0x27 => {
+                let mut adjustment = 0;
                 if self.flags.contains(CpuFlag::subtraction) {
                     if self.flags.contains(CpuFlag::half_carry) {
-                        self.a = self.a.wrapping_sub(0x06);
+                        adjustment += 0x06;
                     }
                     if self.flags.contains(CpuFlag::carry) {
-                        self.a = self.a.wrapping_sub(0x60);
+                        adjustment += 0x60;
                     };
+                    self.a = self.a.wrapping_sub(adjustment);
                 } else {
                     if self.flags.contains(CpuFlag::half_carry) || self.a & 0x0f > 0x09 {
-                        self.a = self.a.wrapping_add(0x06);
+                        adjustment += 0x06;
                     }
                     if self.flags.contains(CpuFlag::carry) || self.a > 0x99 {
-                        self.a = self.a.wrapping_add(0x60);
+                        adjustment += 0x60;
                         self.flags.set(CpuFlag::carry, true);
                     }
+                    self.a = self.a.wrapping_add(adjustment);
                 }
+
                 self.flags.set(CpuFlag::zero, self.a == 0);
                 self.flags.set(CpuFlag::half_carry, false);
             }
@@ -956,11 +960,7 @@ impl Cpu {
         self.flags.set(CpuFlag::zero, sum == 0);
         self.flags.set(CpuFlag::subtraction, true);
         self.flags.set(CpuFlag::carry, c1 | c2);
-        let half_carry = (arg1 & 0x0f)
-            .wrapping_sub(arg2 & 0x0f)
-            .wrapping_sub(c)
-            & 0x10
-            > 0;
+        let half_carry = (arg1 & 0x0f).wrapping_sub(arg2 & 0x0f).wrapping_sub(c) & 0x10 > 0;
         self.flags.set(CpuFlag::half_carry, half_carry);
 
         sum
