@@ -114,7 +114,7 @@ impl Cpu {
 
     fn pop_u16_from_stack(&mut self) -> u16 {
         let val = self.bus.mem_read_u16(self.stack_pointer);
-        self.stack_pointer += 2;
+        self.stack_pointer = self.stack_pointer.wrapping_add(2);
         val
     }
 
@@ -378,7 +378,7 @@ impl Cpu {
         } else {
             let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_OP_CODES;
             let opcode_num = self.bus.mem_read(self.program_counter);
-            let opcode = opcodes.get(&opcode_num).unwrap();
+            let opcode = opcodes.get(&opcode_num).unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_num));
 
             self.non_prefixed_opcodes(opcode_num, opcode);
             (opcode.cycles, opcode.bytes)

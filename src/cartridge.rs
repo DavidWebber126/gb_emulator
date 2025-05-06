@@ -1,6 +1,6 @@
-const ROM_PAGE_SIZE: usize = 32 * (2 ^ 10);
-const KIB: usize = 2 ^ 10;
-const MIB: usize = 2 ^ 20;
+const ROM_PAGE_SIZE: usize = 32768;
+const KIB: usize = 1024;
+const MIB: usize = 1048576;
 
 pub trait Mapper {
     fn read_bank0(&mut self, addr: u16) -> u8;
@@ -32,10 +32,10 @@ pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
 
     let mapper = raw[0x0147];
     eprintln!("Mapper is: {}", mapper);
-    eprintln!("Rom Size: {}, Ram Size: {}", rom_size, ram_size);
+    eprintln!("Rom Size: 0x{:X}, Ram Size: 0x{:X}", rom_size, ram_size);
     match mapper {
         0 => Box::new(Mbc0::new(raw, ram_size)),
-        1 | 3 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
+        1..=3 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
         _ => panic!("Mapper value {} not implemented yet", mapper),
     }
 }
@@ -55,7 +55,7 @@ pub struct Mbc1 {
 impl Mbc1 {
     fn new(rom: &[u8], rom_size: usize, ram_size: usize) -> Self {
         let cartridge_rom = rom.to_vec();
-        let cartridge_ram = Vec::with_capacity(ram_size);
+        let cartridge_ram = vec![0; ram_size];
         let max_bank = (rom_size / (16 * KIB)) as u8;
         Self {
             rom_bank: 0,
@@ -84,14 +84,17 @@ impl Mapper for Mbc1 {
         }
     }
 
+    // Addr should be between 0x4000 and 0x7FFF
+    // bits 19-20: Upper bank, 14-18: bank register, 0-13: from addr
     fn read_bankn(&mut self, addr: u16) -> u8 {
-        let addr = addr as usize;
-        let bank = (self.rom_bank as usize) << 14;
+        let addr = addr as usize - 0x4000; // get addr relative to base
+        let bank_base = (self.rom_bank as usize) << 14;
+        //eprintln!("Addr: {:04X}, bank: {:04X}", addr, self.rom_bank);
         if self.rom_size > MIB {
             let upper_bank = (self.ram_bank as usize) << 18;
-            self.cartridge_rom[addr + bank + upper_bank]
+            self.cartridge_rom[addr + bank_base + upper_bank]
         } else {
-            self.cartridge_rom[addr + bank]
+            self.cartridge_rom[addr + bank_base]
         }
     }
 
@@ -125,7 +128,8 @@ impl Mapper for Mbc1 {
     }
 
     fn ram_write(&mut self, addr: u16, val: u8) {
-        let addr = addr as usize;
+        // make addr relative to base address
+        let addr = (addr as usize) - 0xA000;
         if self.banking_mode && self.ram_size >= 512 * KIB {
             // Mode 1
             let bank = (self.ram_bank as usize) << 13;
@@ -137,8 +141,9 @@ impl Mapper for Mbc1 {
     }
 
     fn ram_read(&mut self, addr: u16) -> u8 {
-        let addr = addr as usize;
-        if self.banking_mode && self.ram_size >= 512 * KIB {
+        // make addr relative to base address
+        let addr = (addr as usize) - 0xA000;
+        if self.banking_mode && self.ram_size > 512 * KIB {
             // Mode 1
             let bank = (self.ram_bank as usize) << 13;
             self.cartridge_ram[addr + bank]
