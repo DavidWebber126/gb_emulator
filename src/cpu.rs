@@ -5,6 +5,7 @@ use crate::bus::{Bus, Interrupt};
 use crate::opcodes::{self, Opcode, TargetReg};
 use crate::render;
 use crate::trace;
+use crate::cartridge::Mapper;
 
 bitflags! {
     #[derive(PartialEq, Debug, Clone)]
@@ -20,7 +21,7 @@ bitflags! {
     }
 }
 
-pub struct Cpu {
+pub struct Cpu<T: Mapper> {
     pub a: u8,
     pub b: u8,
     pub c: u8,
@@ -32,15 +33,15 @@ pub struct Cpu {
     pub stack_pointer: u16,
     pub program_counter: u16,
     pub ime: bool,
-    pub bus: Bus,
+    pub bus: Bus<T>,
     pub prefixed_mode: bool,
     pub halted: bool,
     pub frame_ready: bool,
     cycles: u8,
 }
 
-impl Cpu {
-    pub fn new(bus: Bus) -> Self {
+impl<T> Cpu<T> where T: Mapper{
+    pub fn new(bus: Bus<T>) -> Self {
         Self {
             a: 0,
             b: 0,
@@ -361,7 +362,7 @@ impl Cpu {
     // Tell bus how much to step the ppu and apu.
     pub fn step<F>(&mut self, mut callback: F) -> Option<&render::Frame>
     where
-        F: FnMut(&mut Cpu),
+        F: FnMut(&mut Cpu<T>),
     {
         // check for interrupts or halt
         self.interrupt_check();

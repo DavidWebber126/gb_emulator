@@ -23,8 +23,11 @@ fn main() {
     let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
     let bytes: Vec<u8> =
         std::fs::read("roms/zelda link's awakening.gb").expect("No ROM File with that name");
-    let cartridge = cartridge::get_mapper(&bytes);
-    let bus = Bus::new(cartridge);
+    let (mapper, rom_size, ram_size) = cartridge::get_mapper_type(&bytes);
+    let bus = match mapper {
+        0 => Bus::new(cartridge::Mbc0::new(&bytes, ram_size)),
+        1..3 => Bus::new(cartridge::Mbc1::new(&bytes, rom_size, ram_size)),
+    };
     let mut cpu = Cpu::new(bus);
 
     let trace_on = args.contains("trace");

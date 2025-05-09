@@ -1,7 +1,7 @@
 use bitflags::bitflags;
 
 use crate::apu::Apu;
-use crate::cartridge::Mapper;
+use crate::cartridge::{self, Mapper};
 use crate::joypad::Joypad;
 use crate::ppu::{DisplayStatus, Ppu};
 use crate::render::{self, Frame};
@@ -23,10 +23,10 @@ bitflags! {
     }
 }
 
-pub struct Bus {
+pub struct Bus<T: Mapper> {
     pub cpu_ram: [u8; 0x2000], // not sure size of cpu ram
     pub hram: [u8; 0x7F],      // CPU high ram 0xFF80 - 0xFFFE
-    pub cartridge: Box<dyn Mapper>,
+    pub cartridge: T,
     pub joypad: Joypad,
     pub timer: Timer,
     pub interrupt_enable: Interrupt, // Address 0xFFFF enables interrupts
@@ -36,8 +36,11 @@ pub struct Bus {
     pub apu: Apu,
 }
 
-impl Bus {
-    pub fn new(cartridge: Box<dyn Mapper>) -> Self {
+impl<T> Bus<T>
+where
+    T: Mapper,
+{
+    pub fn new(cartridge: T) -> Self {
         Bus {
             cpu_ram: [0; 0x2000],
             hram: [0; 0x7F],

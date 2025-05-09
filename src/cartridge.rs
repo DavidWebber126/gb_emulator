@@ -12,7 +12,7 @@ pub trait Mapper {
 }
 
 // Function to get the mapper as indicated by the code (i.e byte 0x0147)
-pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
+pub fn get_mapper_type(raw: &[u8]) -> (u8, usize, usize) {
     // let header = &raw[0x0100..=0x014F];
     // let cgb = raw[0x0143];
     // let sgb = raw[0x0146];
@@ -33,11 +33,7 @@ pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
     let mapper = raw[0x0147];
     eprintln!("Mapper is: {}", mapper);
     eprintln!("Rom Size: 0x{:X}, Ram Size: 0x{:X}", rom_size, ram_size);
-    match mapper {
-        0 => Box::new(Mbc0::new(raw, ram_size)),
-        1..=3 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
-        _ => panic!("Mapper value {} not implemented yet", mapper),
-    }
+    (mapper, rom_size, ram_size)
 }
 
 pub struct Mbc1 {
@@ -53,7 +49,7 @@ pub struct Mbc1 {
 }
 
 impl Mbc1 {
-    fn new(rom: &[u8], rom_size: usize, ram_size: usize) -> Self {
+    pub fn new(rom: &[u8], rom_size: usize, ram_size: usize) -> Self {
         let cartridge_rom = rom.to_vec();
         let cartridge_ram = vec![0; ram_size];
         let max_bank = (rom_size / (16 * KIB)) as u8;
@@ -163,7 +159,7 @@ pub struct Mbc0 {
 }
 
 impl Mbc0 {
-    fn new(rom: &[u8], ram_size: usize) -> Self {
+    pub fn new(rom: &[u8], ram_size: usize) -> Self {
         let cartridge_ram = vec![0; ram_size];
         Self {
             cartridge_rom: rom.to_vec(),

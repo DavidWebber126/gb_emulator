@@ -1,8 +1,8 @@
-use crate::{cpu::Cpu, opcodes};
+use crate::{cartridge::Mapper, cpu::Cpu, opcodes};
 
 use std::collections::HashMap;
 
-pub fn trace_cpu(cpu: &mut Cpu) {
+pub fn trace_cpu<T: Mapper>(cpu: &mut Cpu<T>) {
     // Get number of bytes from current opcode
     let pc = cpu.program_counter;
     let opcode_byte = cpu.bus.mem_read(pc);
