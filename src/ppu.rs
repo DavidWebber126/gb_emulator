@@ -77,7 +77,7 @@ pub struct Ppu {
     pub cycle: usize,
     pub scanline: u8,
     mode: Mode,
-    scanline_oams: Vec<usize>, // hold the up to 10 OAMs on current scanline. Referenced by first byte in four byte sequence
+    _scanline_oams: Vec<usize>, // hold the up to 10 OAMs on current scanline. Referenced by first byte in four byte sequence
 }
 
 impl Ppu {
@@ -107,7 +107,7 @@ impl Ppu {
             bcps: 0,
             bcpd: 0,
             mode: Mode::MODE2,
-            scanline_oams: Vec::with_capacity(10),
+            _scanline_oams: Vec::with_capacity(10),
 
             cycle: 0,
             scanline: 0,
@@ -168,16 +168,16 @@ impl Ppu {
     }
 
     // Called once Ppu has entered Mode 2. Scan objects that are on current scanline and put into scanline_oams
-    pub fn oam_scan(&mut self) {
-        for i in 0..40 {
-            let y_byte = self.oam[4 * i];
-            let in_scanline = self.scanline + 16 >= y_byte
-                && self.scanline + 8 * (!self.control.contains(Control::obj_size) as u8) < y_byte;
-            if in_scanline && self.scanline_oams.len() < 10 {
-                self.scanline_oams.push(i)
-            }
-        }
-    }
+    // pub fn _oam_scan(&mut self) {
+    //     for i in 0..40 {
+    //         let y_byte = self.oam[4 * i];
+    //         let in_scanline = self.scanline + 16 >= y_byte
+    //             && self.scanline + 8 * (!self.control.contains(Control::obj_size) as u8) < y_byte;
+    //         if in_scanline && self.scanline_oams.len() < 10 {
+    //             self.scanline_oams.push(i)
+    //         }
+    //     }
+    // }
 
     // 456 cycles per scanline. 154 scanlines, last 10 (144-153 inclusive) are vblank
     // First bool is LCD interrupt, second is vblank interrupt

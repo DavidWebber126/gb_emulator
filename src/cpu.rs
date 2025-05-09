@@ -36,6 +36,7 @@ pub struct Cpu {
     pub prefixed_mode: bool,
     pub halted: bool,
     pub frame_ready: bool,
+    cycles: u8,
 }
 
 impl Cpu {
@@ -56,6 +57,7 @@ impl Cpu {
             halted: false,
             prefixed_mode: false,
             frame_ready: false,
+            cycles: 0,
         }
     }
 
@@ -378,13 +380,16 @@ impl Cpu {
         } else {
             let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_OP_CODES;
             let opcode_num = self.bus.mem_read(self.program_counter);
-            let opcode = opcodes.get(&opcode_num).unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_num));
+            let opcode = opcodes
+                .get(&opcode_num)
+                .unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_num));
 
             self.non_prefixed_opcodes(opcode_num, opcode);
             (opcode.cycles, opcode.bytes)
         };
 
-        self.frame_ready = self.bus.tick(cycles);
+        self.frame_ready = self.bus.tick(cycles + self.cycles);
+        self.cycles = 0;
         self.program_counter = self.program_counter.wrapping_add(bytes);
 
         // check if frame is ready to display
@@ -587,7 +592,7 @@ impl Cpu {
                 };
                 if should_execute {
                     // inc cycle count
-                    // self.cycles += 1;
+                    self.cycles += 3;
                     let addr = self.reg_read(&opcode.reg2).unwrap();
                     self.push_u16_to_stack(self.program_counter.wrapping_add(3));
                     self.program_counter = addr.wrapping_sub(3);
@@ -702,7 +707,7 @@ impl Cpu {
                 };
                 if should_execute {
                     // inc cycle count
-                    // self.cycles += 1;
+                    self.cycles += 1;
                     self.program_counter = self.reg_read(&opcode.reg2).unwrap() - 3;
                 }
             }
@@ -725,7 +730,7 @@ impl Cpu {
                 };
                 if should_execute {
                     // inc cycle count
-                    // self.cycles += 1;
+                    self.cycles += 1;
                     self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
                 }
             }
@@ -819,7 +824,7 @@ impl Cpu {
                 };
                 if should_execute {
                     // inc cycle count
-                    // self.cycles += 1;
+                    self.cycles += 3;
                     self.program_counter = self.pop_u16_from_stack() - 1; // minus 1 to account for the added byte
                 }
             }

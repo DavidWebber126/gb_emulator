@@ -1,5 +1,6 @@
 use bitflags::bitflags;
 
+use crate::apu::Apu;
 use crate::cartridge::Mapper;
 use crate::joypad::Joypad;
 use crate::ppu::{DisplayStatus, Ppu};
@@ -32,6 +33,7 @@ pub struct Bus {
     pub interrupt_flag: Interrupt,
     pub ppu: Ppu,
     pub frame: Frame,
+    pub apu: Apu,
 }
 
 impl Bus {
@@ -46,6 +48,7 @@ impl Bus {
             interrupt_flag: Interrupt::empty(),
             ppu: Ppu::new(),
             frame: Frame::new(),
+            apu: Apu::new(),
         }
     }
 
@@ -114,7 +117,7 @@ impl Bus {
         match display_result {
             DisplayStatus::DoNothing => false,
             DisplayStatus::OAMScan => {
-                self.ppu.oam_scan(); // Mode 2 started
+                // Mode 2 started
                 false
             }
             DisplayStatus::NewScanline => {
@@ -168,6 +171,23 @@ impl Bus {
             0xFF05 => self.timer.timer_counter,
             0xFF06 => self.timer.timer_modulo,
             0xFF07 => self.timer.tac_read(),
+            // APU
+            // Channel 1 Sweep
+            0xFF10 => self.apu.square1.sweep_read(),
+            // Channel 1 length timer & duty cycle
+            0xFF11 => self.apu.square1.length_timer_read(),
+            // Channel 1 volume & envelope
+            0xFF12 => self.apu.square1.envelope_read(),
+            // Channel 1 period low
+            0xFF13 => self.apu.square1.period_low_read(),
+            // Channel 1 period high & control
+            0xFF14 => self.apu.square1.control_read(),
+            // Master Volume & VIN panning
+            0xFF24 => self.apu.volume_read(),
+            // Sound Panning
+            0xFF25 => self.apu.sound_panning_read(),
+            // Audio Master Control
+            0xFF26 => self.apu.master_control_read(),
             // Interrupts
             0xFF0F => self.interrupt_flag.bits(),
             0xFF40 => self.ppu.read_ctrl(),
@@ -252,16 +272,17 @@ impl Bus {
             0xFF0F => {
                 self.interrupt_flag = Interrupt::from_bits_retain(data & 0b0001_1111);
             }
-            // Sound channel 1 sweep
-            0xFF10 => {}
-            // Sound channel 1 length timer & duty cycle
-            0xFF11 => {}
-            // Sound channel 1 volume & envelope
-            0xFF12 => {}
-            // Sound channel 1 period low
-            0xFF13 => {}
-            // Sound channel 1 period high & control
-            0xFF14 => {}
+            // APU
+            // Channel 1 Sweep
+            0xFF10 => self.apu.square1.sweep_write(data),
+            // Channel 1 length timer & duty cycle
+            0xFF11 => self.apu.square1.length_timer_write(data),
+            // Channel 1 volume & envelope
+            0xFF12 => self.apu.square1.envelope_write(data),
+            // Channel 1 period low
+            0xFF13 => self.apu.square1.period_low_write(data),
+            // Channel 1 period high & control
+            0xFF14 => self.apu.square1.control_write(data),
             // Sound channel 2 length timer & duty cycle
             0xFF16 => {}
             // Sound channel 2 volume & envelope
@@ -289,11 +310,11 @@ impl Bus {
             // Sound channel 4 control
             0xFF23 => {}
             // Master volume & VIN panning
-            0xFF24 => {}
-            // Sound panning
-            0xFF25 => {}
-            // Sound on/off
-            0xFF26 => {}
+            0xFF24 => self.apu.volume_write(data),
+            // Sound Panning
+            0xFF25 => self.apu.sound_panning_write(data),
+            // Audio Master Control
+            0xFF26 => self.apu.master_control_write(data),
             // Wave RAM
             0xFF30..=0xFF3F => {}
             // PPU Registers

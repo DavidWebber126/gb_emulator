@@ -130,6 +130,9 @@ impl Mapper for Mbc1 {
     fn ram_write(&mut self, addr: u16, val: u8) {
         // make addr relative to base address
         let addr = (addr as usize) - 0xA000;
+        if addr >= self.ram_size {
+            return;
+        }
         if self.banking_mode && self.ram_size >= 512 * KIB {
             // Mode 1
             let bank = (self.ram_bank as usize) << 13;

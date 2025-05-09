@@ -53,7 +53,7 @@ lazy_static! {
         key_map.insert(Keycode::Right, (false, 0b0000_0001));
         key_map.insert(Keycode::Return, (true, 0b0000_1000));
         key_map.insert(Keycode::Space, (true, 0b0000_0100));
-        key_map.insert(Keycode::B, (true, 0b0000_0010));
+        key_map.insert(Keycode::S, (true, 0b0000_0010));
         key_map.insert(Keycode::A, (true, 0b0000_0001));
 
         key_map
