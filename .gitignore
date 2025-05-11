@@ -1,7 +1,5 @@
 /target
-logs
-roms
+logs/
+roms/
 notes.txt
-logs/log.txt
-
 logs/log.txt

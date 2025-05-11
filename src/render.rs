@@ -76,15 +76,11 @@ fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
 
 fn get_sprite(ppu: &Ppu, x: usize, y: usize) -> (u8, bool) {
     let mut valid_objs = Vec::new();
-    for i in 0..40 {
-        let y_byte = ppu.oam[4 * i];
+    for i in ppu.scanline_oams.iter() {
         let x_byte = ppu.oam[4 * i + 1];
-        let valid = y + 16 >= y_byte as usize
-            && y + 8 *(!ppu.control.contains(Control::obj_size) as usize) < y_byte as usize // If 8x8 we need y < y_byte - 8, in 8x16 just y < y_byte
-            && x + 8 >= x_byte as usize
-            && x < x_byte as usize;
+        let valid = x + 8 >= x_byte as usize && x < x_byte as usize;
         if valid {
-            valid_objs.push((x_byte, i));
+            valid_objs.push((x_byte, *i));
         }
     }
     valid_objs.sort();
@@ -162,7 +158,6 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
     } else {
         get_bg_tile_id(ppu, x, y)
     };
-    //let (tile_id, x_pos, y_pos) = get_bg_tile_id(ppu, x, y);
     let pixel_id = get_pixel_data(ppu, x_pos, y_pos, tile_id, false);
     let bg_pixel = (ppu.bg_palette & (0b11 << (2 * pixel_id))) >> (2 * pixel_id);
 

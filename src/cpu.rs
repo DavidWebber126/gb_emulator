@@ -120,27 +120,27 @@ impl Cpu {
         val
     }
 
-    fn reg_read(&mut self, target: &TargetReg) -> Option<u16> {
-        match target {
-            TargetReg::R8(reg) => Some(self.r8_read(*reg) as u16),
-            TargetReg::R16(reg) => Some(self.r16_read(*reg)),
-            TargetReg::R16stk(reg) => Some(self.r16stk_read(*reg)),
-            TargetReg::R16mem(reg) => Some(self.r16mem_read(*reg)),
-            TargetReg::Cond(code) => Some(*code as u16),
-            TargetReg::Tgt3(reg) => Some(self.tgt3_read(*reg)),
-            TargetReg::B3(bit) => Some(*bit as u16),
-            TargetReg::A => Some(self.a as u16),
-            TargetReg::SP => Some(self.stack_pointer),
-            TargetReg::C => Some(self.bus.mem_read(0xff00 + self.c as u16) as u16),
-            TargetReg::Imm16 => Some(self.bus.mem_read_u16(self.program_counter + 1)),
-            TargetReg::Imm8 => Some(self.bus.mem_read(self.program_counter + 1) as u16),
-            TargetReg::Ptr => {
-                let addr = self.bus.mem_read_u16(self.program_counter + 1);
-                Some(self.bus.mem_read(addr) as u16)
-            }
-            _ => panic!("{:?} is not implemented yet", target),
-        }
-    }
+    // fn reg_read(&mut self, target: &TargetReg) -> Option<u16> {
+    //     match target {
+    //         TargetReg::R8(reg) => Some(self.r8_read(*reg) as u16),
+    //         TargetReg::R16(reg) => Some(self.r16_read(*reg)),
+    //         TargetReg::R16stk(reg) => Some(self.r16stk_read(*reg)),
+    //         TargetReg::R16mem(reg) => Some(self.r16mem_read(*reg) as u16),
+    //         TargetReg::Cond(code) => Some(*code as u16),
+    //         TargetReg::Tgt3(reg) => Some(self.tgt3_read(*reg)),
+    //         TargetReg::B3(bit) => Some(*bit as u16),
+    //         TargetReg::A => Some(self.a as u16),
+    //         TargetReg::SP => Some(self.stack_pointer),
+    //         TargetReg::C => Some(self.bus.mem_read(0xff00 + self.c as u16) as u16),
+    //         TargetReg::Imm16 => Some(self.bus.mem_read_u16(self.program_counter + 1)),
+    //         TargetReg::Imm8 => Some(self.bus.mem_read(self.program_counter + 1) as u16),
+    //         TargetReg::Ptr => {
+    //             let addr = self.bus.mem_read_u16(self.program_counter + 1);
+    //             Some(self.bus.mem_read(addr) as u16)
+    //         }
+    //         _ => panic!("{:?} is not implemented yet", target),
+    //     }
+    // }
 
     fn r8_read(&mut self, reg: u8) -> u8 {
         match reg {
@@ -176,25 +176,25 @@ impl Cpu {
         }
     }
 
-    fn r16mem_read(&mut self, reg: u8) -> u16 {
+    fn r16mem_read(&mut self, reg: u8) -> u8 {
         match reg {
             0 => {
                 let addr = self.get_bc();
-                self.bus.mem_read(addr) as u16
+                self.bus.mem_read(addr)
             }
             1 => {
                 let addr = self.get_de();
-                self.bus.mem_read(addr) as u16
+                self.bus.mem_read(addr)
             }
             2 => {
                 let addr = self.get_hl();
-                let val = self.bus.mem_read(addr) as u16;
+                let val = self.bus.mem_read(addr);
                 self.set_hl(addr.wrapping_add(1));
                 val
             }
             3 => {
                 let addr = self.get_hl();
-                let val = self.bus.mem_read(addr) as u16;
+                let val = self.bus.mem_read(addr);
                 self.set_hl(addr.wrapping_sub(1));
                 val
             }
@@ -216,32 +216,32 @@ impl Cpu {
         }
     }
 
-    fn reg_write(&mut self, target: &TargetReg, data: u16) {
-        match target {
-            TargetReg::R8(reg) => self.r8_write(*reg, (data & 0xff) as u8),
-            TargetReg::R16(reg) => self.r16_write(*reg, data),
-            TargetReg::R16stk(reg) => self.r16stk_write(*reg, data),
-            TargetReg::R16mem(reg) => self.r16mem_write(*reg, data),
-            TargetReg::A => self.a = (data & 0xff) as u8,
-            TargetReg::SP => self.stack_pointer = data,
-            TargetReg::C => self
-                .bus
-                .mem_write(0xff00 + self.c as u16, (data & 0xff) as u8),
-            TargetReg::Ptr => {
-                let addr = self.bus.mem_read_u16(self.program_counter + 1);
-                self.bus.mem_write(addr, data as u8);
-            }
-            TargetReg::Imm8 => {
-                let addr = self.bus.mem_read(self.program_counter + 1);
-                self.bus.mem_write(0xff00 + addr as u16, data as u8);
-            }
-            TargetReg::Imm16 => {
-                let addr = self.bus.mem_read_u16(self.program_counter + 1);
-                self.bus.mem_write_u16(addr, data);
-            }
-            _ => panic!("{:?} is not implemented yet", target),
-        }
-    }
+    // fn reg_write(&mut self, target: &TargetReg, data: u16) {
+    //     match target {
+    //         TargetReg::R8(reg) => self.r8_write(*reg, (data & 0xff) as u8),
+    //         TargetReg::R16(reg) => self.r16_write(*reg, data),
+    //         TargetReg::R16stk(reg) => self.r16stk_write(*reg, data),
+    //         TargetReg::R16mem(reg) => self.r16mem_write(*reg, data),
+    //         TargetReg::A => self.a = (data & 0xff) as u8,
+    //         TargetReg::SP => self.stack_pointer = data,
+    //         TargetReg::C => self
+    //             .bus
+    //             .mem_write(0xff00 + self.c as u16, (data & 0xff) as u8),
+    //         TargetReg::Ptr => {
+    //             let addr = self.bus.mem_read_u16(self.program_counter + 1);
+    //             self.bus.mem_write(addr, data as u8);
+    //         }
+    //         TargetReg::Imm8 => {
+    //             let addr = self.bus.mem_read(self.program_counter + 1);
+    //             self.bus.mem_write(0xff00 + addr as u16, data as u8);
+    //         }
+    //         TargetReg::Imm16 => {
+    //             let addr = self.bus.mem_read_u16(self.program_counter + 1);
+    //             self.bus.mem_write_u16(addr, data);
+    //         }
+    //         _ => panic!("{:?} is not implemented yet", target),
+    //     }
+    // }
 
     fn r8_write(&mut self, reg: u8, value: u8) {
         match reg {
@@ -416,26 +416,39 @@ impl Cpu {
         match byte {
             // bit u3, r8
             0x40..=0x7f => {
-                let bit = self.reg_read(&opcode.reg1).unwrap() as u8;
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+                let TargetReg::B3(bit) = &opcode.reg1 else {
+                    panic!("BIT Opcode needs U3 in first Register but it is not")
+                };
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("BIT Opcode needs R8 in second Register but it is not")
+                };
+                let val = self.r8_read(*reg);
                 self.flags.set(CpuFlag::zero, ((val >> bit) & 0b1) == 0);
                 self.flags.set(CpuFlag::subtraction, false);
                 self.flags.set(CpuFlag::half_carry, true);
             }
             // res u3, r8
             0x80..=0xbf => {
-                let bit = self.reg_read(&opcode.reg1).unwrap() as u8;
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.reg_write(&opcode.reg2, (val & !(0x01 << bit)) as u16);
+                let TargetReg::B3(bit) = &opcode.reg1 else {
+                    panic!("RES Opcode needs U3 in first Register but it is not")
+                };
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("RES Opcode needs R8 in second Register but it is not")
+                };
+                let val = self.r8_read(*reg);
+                self.r8_write(*reg, val & !(0x01 << bit));
             }
             // rl r8
             0x10..=0x17 => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
-                let left_bit = (val & 0x80) != 0x00;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
+                let left_bit = (val & 0x80) > 0x00;
                 let carry = self.flags.contains(CpuFlag::carry);
                 val <<= 1;
                 val += carry as u8;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.remove(CpuFlag::subtraction);
                 self.flags.remove(CpuFlag::half_carry);
@@ -443,11 +456,14 @@ impl Cpu {
             }
             // rlc r8
             0x00..=0x07 => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let left_bit = (val & 0x80) != 0x00;
                 val <<= 1;
                 val += left_bit as u8;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.remove(CpuFlag::subtraction);
                 self.flags.remove(CpuFlag::half_carry);
@@ -455,12 +471,15 @@ impl Cpu {
             }
             // rr r8
             0x18..=0x1f => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let right_bit = (val & 0x01) != 0;
                 let carry = self.flags.contains(CpuFlag::carry);
                 val >>= 1;
                 val += (carry as u8) << 7;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.remove(CpuFlag::subtraction);
                 self.flags.remove(CpuFlag::half_carry);
@@ -468,11 +487,14 @@ impl Cpu {
             }
             // rrc r8
             0x08..=0x0f => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let right_bit = (val & 0x01) != 0;
                 val >>= 1;
                 val += (right_bit as u8) << 7;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.remove(CpuFlag::subtraction);
                 self.flags.remove(CpuFlag::half_carry);
@@ -480,16 +502,24 @@ impl Cpu {
             }
             // set u3, r8
             0xc0..=0xff => {
-                let bit = self.reg_read(&opcode.reg1).unwrap() as u8;
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.reg_write(&opcode.reg2, (val | (0x1 << bit)) as u16);
+                let TargetReg::B3(bit) = &opcode.reg1 else {
+                    panic!("BIT Opcode needs U3 in first Register but it is not")
+                };
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
+                self.r8_write(*reg, val | (0x1 << bit));
             }
             // sla r8
             0x20..=0x27 => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let left_bit = val & 0x80 != 0;
                 val <<= 1;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.set(CpuFlag::subtraction, false);
                 self.flags.set(CpuFlag::half_carry, false);
@@ -497,12 +527,15 @@ impl Cpu {
             }
             // sra r8
             0x28..=0x2f => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let right_bit = val & 0x01 != 0;
                 let left_bit = val & 0x80;
                 val >>= 1;
                 val |= left_bit;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.set(CpuFlag::subtraction, false);
                 self.flags.set(CpuFlag::half_carry, false);
@@ -510,10 +543,13 @@ impl Cpu {
             }
             // srl r8
             0x38..=0x3f => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let right_bit = val & 0x01 != 0;
                 val >>= 1;
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.set(CpuFlag::subtraction, false);
                 self.flags.set(CpuFlag::half_carry, false);
@@ -521,10 +557,13 @@ impl Cpu {
             }
             // swap r8
             0x30..=0x37 => {
-                let val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
                 let lo = val & 0x0f;
                 let hi = val & 0xf0;
-                self.reg_write(&opcode.reg1, ((lo << 4) + (hi >> 4)) as u16);
+                self.r8_write(*reg, (lo << 4) + (hi >> 4));
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.set(CpuFlag::subtraction, false);
                 self.flags.set(CpuFlag::half_carry, false);
@@ -535,38 +574,73 @@ impl Cpu {
 
     fn non_prefixed_opcodes(&mut self, byte: u8, opcode: &Opcode) {
         match byte {
-            // 8 bit ADC
-            0x88..=0x8f | 0xce => {
-                let arg = self.reg_read(&opcode.reg2).unwrap() as u8;
+            // ADC A, r8
+            0x88..=0x8f => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let arg = self.r8_read(*reg);
                 let sum = self.add_u8(self.a, arg, true);
 
                 self.a = sum;
             }
-            // 8 bit ADD
-            0x80..=0x87 | 0xc6 => {
-                let arg1 = self.reg_read(&opcode.reg1).unwrap() as u8;
-                let arg2 = self.reg_read(&opcode.reg2).unwrap() as u8;
-                let sum = self.add_u8(arg1, arg2, false);
+            // ADC A, imm8
+            0xce => {
+                let arg = self.bus.mem_read(self.program_counter + 1);
+                let sum = self.add_u8(self.a, arg, true);
 
-                self.reg_write(&opcode.reg1, sum as u16);
+                self.a = sum;
+            }
+            // ADD A, r8
+            0x80..=0x87 => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let arg = self.r8_read(*reg);
+                let sum = self.add_u8(self.a, arg, false);
+
+                self.a = sum;
+            }
+            // ADD A, imm8
+            0xc6 => {
+                let arg = self.bus.mem_read(self.program_counter + 1);
+                let sum = self.add_u8(self.a, arg, false);
+
+                self.a = sum;
             }
             // ADD SP, e8
             0xe8 => {
-                let arg = self.reg_read(&opcode.reg2).unwrap() as u8;
+                let arg = self.bus.mem_read(self.program_counter + 1);
                 self.stack_pointer = self.add_e8(self.stack_pointer, arg);
                 self.flags.remove(CpuFlag::zero);
                 self.flags.remove(CpuFlag::subtraction);
             }
-            // 16 bit ADD
+            // ADD HL, r16
             0x09 | 0x19 | 0x29 | 0x39 => {
-                let arg = self.reg_read(&opcode.reg2).unwrap();
+                let TargetReg::R16(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R16 but it is not")
+                };
+                let arg = self.r16_read(*reg);
                 let sum = self.add_u16(self.get_hl(), arg, false);
 
                 self.set_hl(sum);
             }
-            // 8 bit AND
-            0xa0..=0xa7 | 0xe6 => {
-                let arg = self.reg_read(&opcode.reg2).unwrap() as u8;
+            // AND A, r8
+            0xa0..=0xa7 => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let arg = self.r8_read(*reg);
+                self.a &= arg;
+
+                self.flags.set(CpuFlag::zero, self.a == 0);
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.insert(CpuFlag::half_carry);
+                self.flags.remove(CpuFlag::carry);
+            }
+            // AND A, imm8
+            0xe6 => {
+                let arg = self.bus.mem_read(self.program_counter + 1);
                 self.a &= arg;
 
                 self.flags.set(CpuFlag::zero, self.a == 0);
@@ -576,13 +650,15 @@ impl Cpu {
             }
             // CALL
             0xcd => {
-                let addr = self.reg_read(&opcode.reg1).unwrap();
+                let addr = self.bus.mem_read_u16(self.program_counter + 1);
                 self.push_u16_to_stack(self.program_counter.wrapping_add(3));
                 self.program_counter = addr.wrapping_sub(3);
             }
             // CALL cc
             0xc4 | 0xcc | 0xd4 | 0xdc => {
-                let condition = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::Cond(condition) = &opcode.reg1 else {
+                    panic!("Expected Cond register")
+                };
                 let should_execute = match condition {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
@@ -593,7 +669,7 @@ impl Cpu {
                 if should_execute {
                     // inc cycle count
                     self.cycles += 3;
-                    let addr = self.reg_read(&opcode.reg2).unwrap();
+                    let addr = self.bus.mem_read_u16(self.program_counter + 1);
                     self.push_u16_to_stack(self.program_counter.wrapping_add(3));
                     self.program_counter = addr.wrapping_sub(3);
                 }
@@ -604,9 +680,17 @@ impl Cpu {
                 self.flags.remove(CpuFlag::half_carry);
                 self.flags.toggle(CpuFlag::carry);
             }
-            // 8 bit CP
-            0xb8..=0xbf | 0xfe => {
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+            // CP A, r8
+            0xb8..=0xbf => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
+                let _result = self.sub_u8(self.a, val, false);
+            }
+            // CP A, imm8
+            0xfe => {
+                let val = self.bus.mem_read(self.program_counter + 1);
                 let _result = self.sub_u8(self.a, val, false);
             }
             // CPL
@@ -640,21 +724,27 @@ impl Cpu {
                 self.flags.set(CpuFlag::zero, self.a == 0);
                 self.flags.set(CpuFlag::half_carry, false);
             }
-            // 8 bit DEC
+            // DEC r8
             0x05 | 0x0d | 0x15 | 0x1d | 0x25 | 0x2d | 0x35 | 0x3d => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let half_carry = ((val & 0x0f).wrapping_sub(1)) & 0x10 > 0;
                 val = val.wrapping_sub(1);
-                self.reg_write(&opcode.reg1, val);
+                self.r8_write(*reg, val);
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.insert(CpuFlag::subtraction);
                 self.flags.set(CpuFlag::half_carry, half_carry);
             }
-            // 16 bit DEC
+            // DEC r16
             0x0b | 0x1b | 0x2b | 0x3b => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::R16(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R16 but it is not")
+                };
+                let mut val = self.r16_read(*reg);
                 val = val.wrapping_sub(1);
-                self.reg_write(&opcode.reg1, val);
+                self.r16_write(*reg, val);
             }
             // DI
             0xf3 => {
@@ -668,36 +758,43 @@ impl Cpu {
             0x76 => {
                 self.halted = true;
             }
-            // 8 bit INC
+            // INC r8
             0x04 | 0x0c | 0x14 | 0x1c | 0x24 | 0x2c | 0x34 | 0x3c => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap() as u8;
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let mut val = self.r8_read(*reg);
                 let half_carry = val & 0x0f == 0x0f;
                 val = val.wrapping_add(1);
-                self.reg_write(&opcode.reg1, val as u16);
+                self.r8_write(*reg, val);
 
                 self.flags.set(CpuFlag::zero, val == 0);
                 self.flags.remove(CpuFlag::subtraction);
                 self.flags.set(CpuFlag::half_carry, half_carry);
             }
-            // 16 bit INC
+            // INC r16
             0x03 | 0x13 | 0x23 | 0x33 => {
-                let mut val = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::R16(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R16 but it is not")
+                };
+                let mut val = self.r16_read(*reg);
                 val = val.wrapping_add(1);
-                self.reg_write(&opcode.reg1, val);
+                self.r16_write(*reg, val);
             }
             // JP
             0xc3 => {
-                let addr = self.reg_read(&opcode.reg1).unwrap();
+                let addr = self.bus.mem_read_u16(self.program_counter + 1);
                 self.program_counter = addr.wrapping_sub(3); // Subtract 3 bytes to account for the addition of 3 bytes from the JP opcode
             }
             // JP HL
             0xe9 => {
-                let addr = self.reg_read(&opcode.reg1).unwrap();
-                self.program_counter = addr.wrapping_sub(1); // Subtract 1 byte to account for the addition of 1 byte from the JP opcode
+                self.program_counter = (self.get_hl()).wrapping_sub(1);
             }
             // JP cc
             0xc2 | 0xca | 0xd2 | 0xda => {
-                let condition = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::Cond(condition) = &opcode.reg1 else {
+                    panic!("Expected Cond register")
+                };
                 let should_execute = match condition {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
@@ -708,25 +805,26 @@ impl Cpu {
                 if should_execute {
                     // inc cycle count
                     self.cycles += 1;
-                    self.program_counter = self.reg_read(&opcode.reg2).unwrap() - 3;
+                    self.program_counter = self.bus.mem_read_u16(self.program_counter + 1) - 3;
                 }
             }
             // JR imm8
             0x18 => {
-                let offset = self.reg_read(&opcode.reg1).unwrap() as i8;
+                let offset = self.bus.mem_read(self.program_counter + 1) as i8;
                 self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
-                //self.program_counter -= 2; // subtract 2 to account for the opcodes bytes
             }
-            // JR cc
+            // JR cc, imm8
             0x20 | 0x28 | 0x30 | 0x38 => {
-                let offset = self.reg_read(&opcode.reg2).unwrap() as i8;
-                let cond = self.reg_read(&opcode.reg1).unwrap();
-                let should_execute = match cond {
+                let offset = self.bus.mem_read(self.program_counter + 1) as i8;
+                let TargetReg::Cond(condition) = &opcode.reg1 else {
+                    panic!("Expected Cond register")
+                };
+                let should_execute = match condition {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
                     2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is not set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
-                    _ => panic!("Condition Codes are 0-3. Received {}", cond),
+                    _ => panic!("Condition Codes are 0-3. Received {}", condition),
                 };
                 if should_execute {
                     // inc cycle count
@@ -734,58 +832,107 @@ impl Cpu {
                     self.program_counter = self.program_counter.wrapping_add_signed(offset as i16);
                 }
             }
-            // 8 bit LD r8 to r8
+            // LD r8, r8
             0x40..=0x75 | 0x77..=0x7f => {
-                let value = self.reg_read(&opcode.reg2).unwrap();
-                self.reg_write(&opcode.reg1, value);
+                let TargetReg::R8(reg2) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg2);
+                let TargetReg::R8(reg1) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                self.r8_write(*reg1, val);
             }
-            // 16 bit LD
-            0x01 | 0x11 | 0x21 | 0x31 | 0xfa | 0xea | 0x08 | 0xf9 => {
-                let value = self.reg_read(&opcode.reg2).unwrap();
-                self.reg_write(&opcode.reg1, value);
+            // LD r16, imm16
+            0x01 | 0x11 | 0x21 | 0x31 => {
+                let val = self.bus.mem_read_u16(self.program_counter + 1);
+                let TargetReg::R16(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R16 but it is not")
+                };
+                self.r16_write(*reg, val);
             }
-            // 8 bit LD r16mem
-            0x02 | 0x12 | 0x22 | 0x32 | 0x0a | 0x1a | 0x2a | 0x3a => {
-                let value = self.reg_read(&opcode.reg2).unwrap();
-                self.reg_write(&opcode.reg1, value);
+            // LD A, imm16
+            0xfa => {
+                let addr = self.bus.mem_read_u16(self.program_counter + 1);
+                let val = self.bus.mem_read(addr);
+                self.a = val;
             }
-
-            // 8 bit imm ld
+            // LD imm16, A
+            0xea => {
+                let addr = self.bus.mem_read_u16(self.program_counter + 1);
+                self.bus.mem_write(addr, self.a);
+            }
+            // LD imm16, SP
+            0x08 => {
+                let addr = self.bus.mem_read_u16(self.program_counter + 1);
+                self.bus.mem_write_u16(addr, self.stack_pointer);
+            }
+            // LD SP, HL
+            0xf9 => {
+                self.stack_pointer = self.get_hl();
+            }
+            // LD r16mem, A
+            0x02 | 0x12 | 0x22 | 0x32 => {
+                let TargetReg::R16mem(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R16mem but it is not")
+                };
+                self.r16mem_write(*reg, self.a as u16);
+            }
+            // LD A, r16mem
+            0x0a | 0x1a | 0x2a | 0x3a => {
+                let TargetReg::R16mem(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R16mem but it is not")
+                };
+                let val = self.r16mem_read(*reg);
+                self.a = val;
+            }
+            // LD r8, imm8
             0x06 | 0x0e | 0x16 | 0x1e | 0x26 | 0x2e | 0x36 | 0x3e => {
-                let value = self.reg_read(&opcode.reg2).unwrap();
-                self.reg_write(&opcode.reg1, value);
+                let value = self.bus.mem_read(self.program_counter + 1);
+                let TargetReg::R8(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                self.r8_write(*reg, value);
             }
             // ld hl, sp + imm8
             0xf8 => {
-                let offset = self.reg_read(&opcode.reg2).unwrap() as u8;
+                let offset = self.bus.mem_read(self.program_counter + 1);
                 let sum = self.add_e8(self.stack_pointer, offset);
                 self.set_hl(sum);
                 self.flags.set(CpuFlag::zero, false);
                 self.flags.set(CpuFlag::subtraction, false);
             }
-            // 8 bit LDH
-            0xe2 | 0xf2 => {
-                let value = self.reg_read(&opcode.reg2).unwrap();
-                self.reg_write(&opcode.reg1, value);
+            // LDH [C], A
+            0xe2 => {
+                let addr = 0xff00 + self.c as u16;
+                self.bus.mem_write(addr, self.a);
+            }
+            // LDH A, [C]
+            0xf2 => {
+                let val = self.bus.mem_read(0xff00 + self.c as u16);
+                self.a = val;
             }
             // LDH imm8, A
             0xe0 => {
-                let addr_lo = self.reg_read(&opcode.reg1).unwrap();
+                let addr_lo = self.bus.mem_read(self.program_counter + 1) as u16;
                 self.bus.mem_write(0xff00 + (addr_lo & 0x00ff), self.a);
             }
             // LDH A, imm8
             0xf0 => {
-                let addr = self.reg_read(&opcode.reg2).unwrap();
-                let val = self.bus.mem_read(0xff00 + (addr & 0x00ff));
+                let addr_lo = self.bus.mem_read(self.program_counter + 1) as u16;
+                let val = self.bus.mem_read(0xff00 + (addr_lo & 0x00ff));
                 self.a = val;
             }
             // NOP
             0x00 => {
                 // do nothing
             }
-            // 8 bit OR
-            0xb0..=0xb7 | 0xf6 => {
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+            // OR A, r8
+            0xb0..=0xb7 => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
                 self.a |= val;
 
                 self.flags.set(CpuFlag::zero, self.a == 0);
@@ -793,10 +940,18 @@ impl Cpu {
                 self.flags.remove(CpuFlag::half_carry);
                 self.flags.remove(CpuFlag::carry);
             }
-            // POP
+            // OR A, imm8
+            0xf6 => {
+                let val = self.bus.mem_read(self.program_counter + 1);
+                self.a |= val;
+            }
+            // POP r16stk
             0xc1 | 0xd1 | 0xe1 => {
                 let val = self.pop_u16_from_stack();
-                self.reg_write(&opcode.reg1, val);
+                let TargetReg::R16stk(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R16stk but it is not")
+                };
+                self.r16stk_write(*reg, val);
             }
             // POP AF
             0xf1 => {
@@ -805,7 +960,10 @@ impl Cpu {
             }
             // PUSH
             0xc5 | 0xd5 | 0xe5 | 0xf5 => {
-                let val = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::R16stk(reg) = &opcode.reg1 else {
+                    panic!("Opcode needs R16stk but it is not")
+                };
+                let val = self.r16stk_read(*reg);
                 self.push_u16_to_stack(val);
             }
             // RET
@@ -814,7 +972,9 @@ impl Cpu {
             }
             // RET cc
             0xc0 | 0xc8 | 0xd0 | 0xd8 => {
-                let condition = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::Cond(condition) = &opcode.reg1 else {
+                    panic!("Expected Cond register")
+                };
                 let should_execute = match condition {
                     0 => !self.flags.contains(CpuFlag::zero), // Cond(0) => zero flags is not set
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
@@ -875,15 +1035,26 @@ impl Cpu {
             }
             // RST
             0xc7 | 0xcf | 0xd7 | 0xdf | 0xe7 | 0xef | 0xf7 | 0xff => {
-                let addr = self.reg_read(&opcode.reg1).unwrap();
+                let TargetReg::Tgt3(tgt) = &opcode.reg1 else {
+                    panic!("Expected Tgt register")
+                };
+                let addr = self.tgt3_read(*tgt);
                 // push next instruction onto the stack
                 self.push_u16_to_stack(self.program_counter + 1);
                 self.program_counter = addr.wrapping_sub(1); // -1 since rst instruction is one byte long
             }
-            // 8 bit SBC
-            0x98..=0x9f | 0xde => {
-                let reg = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.a = self.sub_u8(self.a, reg, true);
+            // SBC A, r8
+            0x98..=0x9f => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
+                self.a = self.sub_u8(self.a, val, true);
+            }
+            // SBC A, imm8
+            0xde => {
+                let val = self.bus.mem_read(self.program_counter + 1);
+                self.a = self.sub_u8(self.a, val, true);
             }
             // SCF
             0x37 => {
@@ -895,14 +1066,35 @@ impl Cpu {
             0x10 => {
                 // does nothing
             }
-            // 8 bit SUB
-            0x90..=0x97 | 0xd6 => {
-                let reg = self.reg_read(&opcode.reg2).unwrap() as u8;
-                self.a = self.sub_u8(self.a, reg, false);
+            // SUB A, r8
+            0x90..=0x97 => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
+                self.a = self.sub_u8(self.a, val, false);
             }
-            // 8 bit XOR
-            0xa8..=0xaf | 0xee => {
-                let val = self.reg_read(&opcode.reg2).unwrap() as u8;
+            // SUB A, imm8
+            0xd6 => {
+                let val = self.bus.mem_read(self.program_counter + 1);
+                self.a = self.sub_u8(self.a, val, false);
+            }
+            // XOR A, r8
+            0xa8..=0xaf => {
+                let TargetReg::R8(reg) = &opcode.reg2 else {
+                    panic!("Opcode needs R8 but it is not")
+                };
+                let val = self.r8_read(*reg);
+                self.a ^= val;
+
+                self.flags.set(CpuFlag::zero, self.a == 0);
+                self.flags.set(CpuFlag::subtraction, false);
+                self.flags.set(CpuFlag::carry, false);
+                self.flags.set(CpuFlag::half_carry, false);
+            }
+            // XOR A, imm8
+            0xee => {
+                let val = self.bus.mem_read(self.program_counter + 1);
                 self.a ^= val;
 
                 self.flags.set(CpuFlag::zero, self.a == 0);
@@ -913,7 +1105,6 @@ impl Cpu {
             // Prefixed
             0xcb => {
                 self.prefixed_mode = true;
-                //self.program_counter += 1;
             }
             _ => panic!(
                 "Opcode: {:02X} '{}' is not implemented yet",

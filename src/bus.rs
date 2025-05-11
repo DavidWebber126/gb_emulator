@@ -121,6 +121,7 @@ impl Bus {
                 false
             }
             DisplayStatus::NewScanline => {
+                self.ppu.oam_scan();
                 render::render_scanline(&mut self.ppu, &mut self.frame); // Mode 3 started
                 false
             }
