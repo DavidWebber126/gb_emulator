@@ -888,11 +888,11 @@ impl Cpu {
             }
             // LD r8, imm8
             0x06 | 0x0e | 0x16 | 0x1e | 0x26 | 0x2e | 0x36 | 0x3e => {
-                let value = self.bus.mem_read(self.program_counter + 1);
+                let val = self.bus.mem_read(self.program_counter + 1);
                 let TargetReg::R8(reg) = &opcode.reg1 else {
                     panic!("Opcode needs R8 but it is not")
                 };
-                self.r8_write(*reg, value);
+                self.r8_write(*reg, val);
             }
             // ld hl, sp + imm8
             0xf8 => {

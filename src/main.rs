@@ -22,7 +22,7 @@ fn main() {
     let texture_creator = canvas.texture_creator();
     let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
     let bytes: Vec<u8> =
-        std::fs::read("roms/zelda link's awakening.gb").expect("No ROM File with that name");
+        std::fs::read("roms/04-op r,imm.gb").expect("No ROM File with that name");
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);
@@ -51,19 +51,13 @@ fn main() {
             }
         }
 
-        //let cpu_run = Instant::now();
         let frame = if trace_on {
             cpu.step_with_trace()
         } else {
             cpu.step(|_| {})
         };
-        // let elapsed = cpu_run.elapsed().as_nanos();
-        // if elapsed > 10000 {
-        //     println!("Time to run CPU: {}", elapsed);
-        // }
 
         if let Some(frame) = frame {
-            //let frame_update = Instant::now();
             // present frame
             texture.update(None, &frame.data, 160 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
@@ -76,7 +70,6 @@ fn main() {
             if show_fps {
                 frame_count += 1;
             }
-            //eprintln!("Frame time: {}", frame_update.elapsed().as_micros());
         }
     }
 }
