@@ -279,22 +279,22 @@ impl Cpu {
         }
     }
 
-    fn r16mem_write(&mut self, reg: u8, value: u16) {
+    fn r16mem_write(&mut self, reg: u8, value: u8) {
         match reg {
             0 => {
-                self.bus.mem_write(self.get_bc(), value as u8);
+                self.bus.mem_write(self.get_bc(), value);
             }
             1 => {
-                self.bus.mem_write(self.get_de(), value as u8);
+                self.bus.mem_write(self.get_de(), value);
             }
             2 => {
                 let addr = self.get_hl();
-                self.bus.mem_write(addr, (value & 0xff) as u8);
+                self.bus.mem_write(addr, value);
                 self.set_hl(addr.wrapping_add(1));
             }
             3 => {
                 let addr = self.get_hl();
-                self.bus.mem_write(addr, (value & 0xff) as u8);
+                self.bus.mem_write(addr, value);
                 self.set_hl(addr.wrapping_sub(1));
             }
             _ => panic!("Invalid State. No r16mem value {}", reg),
@@ -876,7 +876,7 @@ impl Cpu {
                 let TargetReg::R16mem(reg) = &opcode.reg1 else {
                     panic!("Opcode needs R16mem but it is not")
                 };
-                self.r16mem_write(*reg, self.a as u16);
+                self.r16mem_write(*reg, self.a);
             }
             // LD A, r16mem
             0x0a | 0x1a | 0x2a | 0x3a => {
@@ -944,6 +944,11 @@ impl Cpu {
             0xf6 => {
                 let val = self.bus.mem_read(self.program_counter + 1);
                 self.a |= val;
+
+                self.flags.set(CpuFlag::zero, self.a == 0);
+                self.flags.remove(CpuFlag::subtraction);
+                self.flags.remove(CpuFlag::half_carry);
+                self.flags.remove(CpuFlag::carry);
             }
             // POP r16stk
             0xc1 | 0xd1 | 0xe1 => {

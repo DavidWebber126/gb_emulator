@@ -57,8 +57,9 @@ impl Mbc1 {
         let cartridge_rom = rom.to_vec();
         let cartridge_ram = vec![0; ram_size];
         let max_bank = (rom_size / (16 * KIB)) as u8;
+        println!("0x4000: {}", cartridge_rom[0x4000]);
         Self {
-            rom_bank: 0,
+            rom_bank: 1,
             ram_bank: 0,
             max_bank,
             banking_mode: false,
@@ -89,7 +90,7 @@ impl Mapper for Mbc1 {
     fn read_bankn(&mut self, addr: u16) -> u8 {
         let addr = addr as usize - 0x4000; // get addr relative to base
         let bank_base = (self.rom_bank as usize) << 14;
-        //eprintln!("Addr: {:04X}, bank: {:04X}", addr, self.rom_bank);
+        //println!("Addr: {:04X}, bank: {:04X}", addr, self.rom_bank);
         if self.rom_size > MIB {
             let upper_bank = (self.ram_bank as usize) << 18;
             self.cartridge_rom[addr + bank_base + upper_bank]
