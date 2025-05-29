@@ -57,7 +57,6 @@ impl Mbc1 {
         let cartridge_rom = rom.to_vec();
         let cartridge_ram = vec![0; ram_size];
         let max_bank = (rom_size / (16 * KIB)) as u8;
-        println!("0x4000: {}", cartridge_rom[0x4000]);
         Self {
             rom_bank: 1,
             ram_bank: 0,

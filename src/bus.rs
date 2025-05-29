@@ -34,6 +34,7 @@ pub struct Bus {
     pub ppu: Ppu,
     pub frame: Frame,
     pub apu: Apu,
+    pub audio_buffer: Vec<f32>,
 }
 
 impl Bus {
@@ -49,6 +50,7 @@ impl Bus {
             ppu: Ppu::new(),
             frame: Frame::new(),
             apu: Apu::new(),
+            audio_buffer: Vec::with_capacity(1024),
         }
     }
 
@@ -112,6 +114,13 @@ impl Bus {
         if self.joypad.interrupt {
             self.joypad.interrupt = false;
             self.interrupt_flag.insert(Interrupt::joypad);
+        }
+
+        // APU
+        for _ in 0..cycles {
+            if let Some(amp) = self.apu.tick() {
+                self.audio_buffer.push(amp);
+            }
         }
 
         match display_result {
@@ -183,6 +192,14 @@ impl Bus {
             0xFF13 => self.apu.square1.period_low_read(),
             // Channel 1 period high & control
             0xFF14 => self.apu.square1.control_read(),
+            // Sound channel 2 length timer & duty cycle
+            0xFF16 => self.apu.square2.length_timer_read(),
+            // Sound channel 2 volume & envelope
+            0xFF17 => self.apu.square2.envelope_read(),
+            // Sound channel 2 period low
+            0xFF18 => self.apu.square2.period_low_read(),
+            // Sound channel 2 period high & control
+            0xFF19 => self.apu.square2.control_read(),
             // Master Volume & VIN panning
             0xFF24 => self.apu.volume_read(),
             // Sound Panning
@@ -285,13 +302,13 @@ impl Bus {
             // Channel 1 period high & control
             0xFF14 => self.apu.square1.control_write(data),
             // Sound channel 2 length timer & duty cycle
-            0xFF16 => {}
+            0xFF16 => self.apu.square2.length_timer_write(data),
             // Sound channel 2 volume & envelope
-            0xFF17 => {}
+            0xFF17 => self.apu.square2.envelope_write(data),
             // Sound channel 2 period low
-            0xFF18 => {}
+            0xFF18 => self.apu.square2.period_low_write(data),
             // Sound channel 2 period high & control
-            0xFF19 => {}
+            0xFF19 => self.apu.square2.control_write(data),
             // Sound channel 3 DAC enable
             0xFF1A => {}
             // Sound channel 3 length timer

@@ -1199,7 +1199,7 @@ mod tests {
 
     fn setup(program: Vec<u8>) -> Cpu {
         let cartridge = get_mapper(&program);
-        let (_canvas, _event_pump) = sdl2_setup::setup();
+        let (_canvas, _event_pump, _audio_device) = sdl2_setup::setup();
         let bus = Bus::new(cartridge);
         let cpu = Cpu::new(bus);
         cpu

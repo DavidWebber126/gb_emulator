@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use lazy_static::lazy_static;
 
+use sdl2::audio::{AudioQueue, AudioSpecDesired};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
@@ -14,7 +15,7 @@ use crate::joypad::Joypad;
 const WIDTH: f64 = 160.0;
 const HEIGHT: f64 = 144.0;
 
-pub fn setup() -> (Canvas<Window>, EventPump) {
+pub fn setup() -> (Canvas<Window>, EventPump, AudioQueue<f32>) {
     // init sdl2
     let sdl_context = sdl2::init().unwrap();
 
@@ -30,7 +31,19 @@ pub fn setup() -> (Canvas<Window>, EventPump) {
     let event_pump = sdl_context.event_pump().unwrap();
     canvas.set_scale(3.0, 3.0).unwrap();
 
-    (canvas, event_pump)
+    //Audio system
+    let audio_subsystem = sdl_context.audio().unwrap();
+    let desired_spec = AudioSpecDesired {
+        freq: Some(44_100),
+        channels: Some(2),
+        samples: Some(1024),
+    };
+    let audio_device = audio_subsystem
+        .open_queue::<f32, _>(None, &desired_spec)
+        .unwrap();
+    audio_device.resume();
+
+    (canvas, event_pump, audio_device)
 }
 
 // Create a "target" texture so that we can use our Renderer with it later

@@ -18,10 +18,10 @@ use std::time::Instant;
 
 fn main() {
     let args: String = env::args().collect();
-    let (mut canvas, mut event_pump) = sdl2_setup::setup();
+    let (mut canvas, mut event_pump, audio_device) = sdl2_setup::setup();
     let texture_creator = canvas.texture_creator();
     let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
-    let bytes: Vec<u8> = std::fs::read("roms/zelda link's awakening.gb").expect("No ROM File with that name");
+    let bytes: Vec<u8> = std::fs::read("roms/04-sweep.gb").expect("No ROM File with that name");
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);
@@ -61,6 +61,10 @@ fn main() {
             texture.update(None, &frame.data, 160 * 3).unwrap();
             canvas.copy(&texture, None, None).unwrap();
             canvas.present();
+
+            // play audio
+            audio_device.queue_audio(&cpu.bus.audio_buffer).unwrap();
+            cpu.bus.audio_buffer.clear();
 
             // check user input
             sdl2_setup::get_user_input(&mut event_pump, &mut cpu.bus.joypad);
