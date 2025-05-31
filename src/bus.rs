@@ -193,6 +193,8 @@ impl Bus {
             // Channel 1 period high & control
             0xFF14 => self.apu.square1.control_read(),
             // Sound channel 2 length timer & duty cycle
+            // Not used
+            0xFF15 => 0xff,
             0xFF16 => self.apu.square2.length_timer_read(),
             // Sound channel 2 volume & envelope
             0xFF17 => self.apu.square2.envelope_read(),
@@ -200,12 +202,36 @@ impl Bus {
             0xFF18 => self.apu.square2.period_low_read(),
             // Sound channel 2 period high & control
             0xFF19 => self.apu.square2.control_read(),
+            // Sound channel 3 DAC enable
+            0xFF1A => self.apu.wave.dac_enable_read(),
+            // Sound channel 3 length timer (Read only)
+            0xFF1B => 0xff,
+            // Sound channel 3 output level
+            0xFF1C => self.apu.wave.output_level_read(),
+            // Sound channel 3 period low
+            0xFF1D => self.apu.wave.period_low_read(),
+            // Sound channel 3 period high & control
+            0xFF1E => self.apu.wave.control_read(),
+            // Not used
+            0xFF1F => 0xff,
+            // Sound channel 4 length timer (Write only)
+            0xFF20 => 0xff,
+            // Sound channel 4 volume & envelope
+            0xFF21 => self.apu.noise.envelope_read(),
+            // Sound channel 4 frequency & randomness
+            0xFF22 => self.apu.noise.randomness_read(),
+            // Sound channel 4 control
+            0xFF23 => self.apu.noise.control_read(),
             // Master Volume & VIN panning
             0xFF24 => self.apu.volume_read(),
             // Sound Panning
             0xFF25 => self.apu.sound_panning_read(),
             // Audio Master Control
             0xFF26 => self.apu.master_control_read(),
+            // Empty always read 0xff
+            0xFF27..=0xFF2F => 0xff,
+            // Wave RAM
+            0xFF30..=0xFF3F => self.apu.wave.wave_ram_read(addr),
             // Interrupts
             0xFF0F => self.interrupt_flag.bits(),
             0xFF40 => self.ppu.read_ctrl(),
@@ -301,6 +327,8 @@ impl Bus {
             0xFF13 => self.apu.square1.period_low_write(data),
             // Channel 1 period high & control
             0xFF14 => self.apu.square1.control_write(data),
+            // Not used
+            0xFF15 => {}
             // Sound channel 2 length timer & duty cycle
             0xFF16 => self.apu.square2.length_timer_write(data),
             // Sound channel 2 volume & envelope
@@ -310,31 +338,35 @@ impl Bus {
             // Sound channel 2 period high & control
             0xFF19 => self.apu.square2.control_write(data),
             // Sound channel 3 DAC enable
-            0xFF1A => {}
+            0xFF1A => self.apu.wave.dac_enable_write(data),
             // Sound channel 3 length timer
-            0xFF1B => {}
+            0xFF1B => self.apu.wave.length_timer(data),
             // Sound channel 3 output level
-            0xFF1C => {}
+            0xFF1C => self.apu.wave.output_level_write(data),
             // Sound channel 3 period low
-            0xFF1D => {}
+            0xFF1D => self.apu.wave.period_low_write(data),
             // Sound channel 3 period high & control
-            0xFF1E => {}
+            0xFF1E => self.apu.wave.control_write(data),
+            // Not used
+            0xFF1F => {}
             // Sound channel 4 length timer
-            0xFF20 => {}
+            0xFF20 => self.apu.noise.length_timer(data),
             // Sound channel 4 volume & envelope
-            0xFF21 => {}
+            0xFF21 => self.apu.noise.envelope_write(data),
             // Sound channel 4 frequency & randomness
-            0xFF22 => {}
+            0xFF22 => self.apu.noise.randomness_write(data),
             // Sound channel 4 control
-            0xFF23 => {}
+            0xFF23 => self.apu.noise.control_write(data),
             // Master volume & VIN panning
             0xFF24 => self.apu.volume_write(data),
             // Sound Panning
             0xFF25 => self.apu.sound_panning_write(data),
             // Audio Master Control
             0xFF26 => self.apu.master_control_write(data),
+            // Not used
+            0xFF27..=0xFF2F => {}
             // Wave RAM
-            0xFF30..=0xFF3F => {}
+            0xFF30..=0xFF3F => self.apu.wave.wave_ram_write(addr, data),
             // PPU Registers
             // LCD Control
             0xFF40 => self.ppu.write_to_ctrl(data),
