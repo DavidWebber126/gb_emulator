@@ -177,10 +177,16 @@ impl Bus {
             0xFF00 => self.joypad.read(),
             // Serial transfer
             0xFF01 | 0xFF02 => todo!("Implement serial transfer"),
+            // DIV
             0xFF04 => self.timer.divider_counter,
+            // TIMA
             0xFF05 => self.timer.timer_counter,
+            // TMA
             0xFF06 => self.timer.timer_modulo,
+            // TAC
             0xFF07 => self.timer.tac_read(),
+            // Interrupt flag
+            0xFF0F => self.interrupt_flag.bits(),
             // APU
             // Channel 1 Sweep
             0xFF10 => self.apu.square1.sweep_read(),
@@ -232,14 +238,29 @@ impl Bus {
             0xFF27..=0xFF2F => 0xff,
             // Wave RAM
             0xFF30..=0xFF3F => self.apu.wave.wave_ram_read(addr),
-            // Interrupts
-            0xFF0F => self.interrupt_flag.bits(),
+            // PPU
+            // LCDC
             0xFF40 => self.ppu.read_ctrl(),
+            // LCD Status
             0xFF41 => self.ppu.read_status(),
+            // SCY
+            0xFF42 => self.ppu.scy,
+            // SCX
+            0xFF43 => self.ppu.scx,
             // LY
             0xFF44 => self.ppu.scanline,
             // LYC
             0xFF45 => self.ppu.lyc,
+            // BGP
+            0xFF47 => self.ppu.bg_palette,
+            // OBP0
+            0xFF48 => self.ppu.obp0,
+            // OBP1
+            0xFF49 => self.ppu.obp1,
+            // WY
+            0xFF4A => self.ppu.wy,
+            // WX
+            0xFF4B => self.ppu.wx,
             // KEY1 (CGB only)
             0xFF4D => 0,
 
@@ -300,19 +321,15 @@ impl Bus {
             }
             // Serial transfer
             0xFF01 | 0xFF02 => {}
-            0xFF04 => {
-                self.timer.divider_counter = 0;
-            }
-            0xFF05 => {
-                self.timer.timer_counter = data;
-            } // do nothing
-            0xFF06 => {
-                self.timer.timer_modulo = data;
-            }
-            0xFF07 => {
-                self.timer.tac_write(data);
-            }
-            // Interrupts
+            // DIV
+            0xFF04 => self.timer.div_write(),
+            // TIMA
+            0xFF05 => self.timer.tima_write(data),
+            // TMA: Timer modulo
+            0xFF06 => self.timer.tma_write(data),
+            // TAC: Timer Control
+            0xFF07 => self.timer.tac_write(data),
+            // Interrupt Flag
             0xFF0F => {
                 self.interrupt_flag = Interrupt::from_bits_retain(data & 0b0001_1111);
             }
@@ -326,7 +343,9 @@ impl Bus {
             // Channel 1 period low
             0xFF13 => self.apu.square1.period_low_write(data),
             // Channel 1 period high & control
-            0xFF14 => self.apu.square1.control_write(data),
+            0xFF14 => {
+                self.apu.square1.control_write(data);
+            }
             // Not used
             0xFF15 => {}
             // Sound channel 2 length timer & duty cycle
