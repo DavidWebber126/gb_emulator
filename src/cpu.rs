@@ -302,7 +302,7 @@ impl Cpu {
     }
 
     fn interrupt_check(&mut self) {
-        // Interrupt is serviced is IME is set, bit is set in both IE and IF flags
+        // Interrupt is serviced if IME is set and bit is set in both IE and IF flags
         let vblank_interrupt = self.bus.vblank_flag() && self.bus.vblank_enabled();
         let lcd_interrupt = self.bus.lcd_flag() && self.bus.lcd_enabled();
         let timer_interrupt = self.bus.timer_flag() && self.bus.timer_enabled();
@@ -326,10 +326,12 @@ impl Cpu {
                 self.ime = false;
                 self.halted = false;
                 self.push_u16_to_stack(self.program_counter + 1);
+                self.cycles += 5;
             }
             (false, true, true) => {
                 self.ime = false;
                 self.push_u16_to_stack(self.program_counter);
+                self.cycles += 5;
             }
             (true, false, true) => {
                 self.halted = false;

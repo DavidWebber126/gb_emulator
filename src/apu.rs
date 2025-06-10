@@ -64,7 +64,9 @@ impl Apu {
 
     // 0xFF24 NR50
     pub fn volume_write(&mut self, val: u8) {
-        self.volume = val;
+        if self.audio_on {
+            self.volume = val;
+        }
     }
 
     pub fn volume_read(&self) -> u8 {
@@ -73,7 +75,9 @@ impl Apu {
 
     // 0xFF25 NR51
     pub fn sound_panning_write(&mut self, val: u8) {
-        self.sound_panning = val;
+        if self.audio_on {
+            self.sound_panning = val;
+        }
     }
 
     pub fn sound_panning_read(&self) -> u8 {
@@ -82,7 +86,29 @@ impl Apu {
 
     // 0xFF26 NR52
     pub fn master_control_write(&mut self, val: u8) {
+        let prev_on = self.audio_on;
         self.audio_on = val & 0b1000_0000 > 0;
+        // Powering Off
+        if !self.audio_on {
+            self.square1.power_down();
+            self.square2.power_down();
+            self.wave.power_down();
+            self.noise.power_down();
+            self.sound_panning = 0;
+            self.volume = 0;
+        }
+
+        // Powering On
+        if !prev_on && self.audio_on {
+            self.frame = 7;
+            self.square1.duty_step = 0;
+            self.square2.duty_step = 0;
+            self.wave.position = 0;
+            self.square1.power_on = true;
+            self.square2.power_on = true;
+            self.wave.power_on = true;
+            self.noise.power_on = true;
+        }
     }
 
     pub fn master_control_read(&self) -> u8 {
@@ -109,39 +135,31 @@ impl Apu {
                     self.square2.len_ctr_tick();
                     self.wave.len_ctr_tick();
                     self.noise.len_ctr_tick();
-
-                    self.square1.length_counter.next_frame_no_clock = true;
-                    self.square2.length_counter.next_frame_no_clock = true;
-                    self.wave.length_counter.next_frame_no_clock = true;
-                    self.noise.length_counter.next_frame_no_clock = true;
                 }
                 0 | 4 => {
                     self.square1.len_ctr_tick();
                     self.square2.len_ctr_tick();
                     self.wave.len_ctr_tick();
                     self.noise.len_ctr_tick();
-
-                    self.square1.length_counter.next_frame_no_clock = true;
-                    self.square2.length_counter.next_frame_no_clock = true;
-                    self.wave.length_counter.next_frame_no_clock = true;
-                    self.noise.length_counter.next_frame_no_clock = true;
                 }
                 7 => {
                     self.square1.envelope.tick();
                     self.square2.envelope.tick();
                     self.noise.envelope.tick();
+                }
+                _ => {}
+            }
 
-                    self.square1.length_counter.next_frame_no_clock = false;
-                    self.square2.length_counter.next_frame_no_clock = false;
-                    self.wave.length_counter.next_frame_no_clock = false;
-                    self.noise.length_counter.next_frame_no_clock = false;
-                }
-                _ => {
-                    self.square1.length_counter.next_frame_no_clock = false;
-                    self.square2.length_counter.next_frame_no_clock = false;
-                    self.wave.length_counter.next_frame_no_clock = false;
-                    self.noise.length_counter.next_frame_no_clock = false;
-                }
+            if self.frame % 2 == 0 {
+                self.square1.length_counter.next_frame_no_clock = true;
+                self.square2.length_counter.next_frame_no_clock = true;
+                self.wave.length_counter.next_frame_no_clock = true;
+                self.noise.length_counter.next_frame_no_clock = true;
+            } else {
+                self.square1.length_counter.next_frame_no_clock = false;
+                self.square2.length_counter.next_frame_no_clock = false;
+                self.wave.length_counter.next_frame_no_clock = false;
+                self.noise.length_counter.next_frame_no_clock = false;
             }
         }
     }
@@ -192,7 +210,7 @@ impl Envelope {
 
             if self.volume < 0x0f && self.mode {
                 self.volume += 1;
-            } else if self.volume > 0 && self.mode {
+            } else if self.volume > 0 && !self.mode {
                 self.volume -= 1;
             }
         }
@@ -209,7 +227,7 @@ struct LengthCounter {
 impl LengthCounter {
     fn new() -> Self {
         Self {
-            enabled: true,
+            enabled: false,
             counter: 0,
             reset_val: 0,
             next_frame_no_clock: false,
@@ -224,16 +242,12 @@ impl LengthCounter {
     fn enable(&mut self, enabled: bool) -> bool {
         let previous_status = self.enabled;
         self.enabled = enabled;
-        !previous_status && enabled && self.next_frame_no_clock && self.counter != 0
+        !previous_status && enabled && self.next_frame_no_clock //&& self.counter != 0
     }
 
     fn tick(&mut self) {
         if self.enabled && self.counter > 0 {
             self.counter -= 1;
-        }
-
-        if self.counter == 0 {
-            self.enabled = false;
         }
     }
 }
@@ -271,8 +285,9 @@ impl Sweep {
 }
 
 pub struct SquareChannel {
+    power_on: bool,
     enabled: bool,
-    dac_on: bool,
+    pub dac_on: bool,
     sweep: Sweep,
     sweep_enabled: bool, // true for Square 1 and false for Square 2
     wave_pattern: usize,
@@ -293,6 +308,7 @@ impl SquareChannel {
 
     pub fn new(sweep_enabled: bool) -> Self {
         Self {
+            power_on: false,
             enabled: false,
             dac_on: false,
             sweep: Sweep::new(),
@@ -306,8 +322,19 @@ impl SquareChannel {
         }
     }
 
+    fn power_down(&mut self) {
+        self.sweep_write(0);
+        // Length timer is not affected by power down
+        // self.length_timer_write(0);
+        self.wave_pattern = 0;
+        self.envelope_write(0);
+        self.period_low_write(0);
+        self.control_write(0);
+        self.power_on = false;
+    }
+
     fn trigger(&mut self) {
-        self.enabled = self.enabled && self.dac_on;
+        self.enabled = self.dac_on;
         if self.length_counter.counter == 0
             && self.length_counter.next_frame_no_clock
             && self.length_counter.enabled
@@ -376,6 +403,10 @@ impl SquareChannel {
 
     // 0xFF10 NR10
     pub fn sweep_write(&mut self, val: u8) {
+        if !self.power_on {
+            return;
+        }
+
         self.sweep.period = (val & 0b0111_0000) >> 4;
         self.sweep.direction = val & 0b0000_1000 == 0;
         if self.sweep.neg_calc_made && self.sweep.direction {
@@ -393,7 +424,9 @@ impl SquareChannel {
 
     // 0xFF11 NR11
     pub fn length_timer_write(&mut self, val: u8) {
-        self.wave_pattern = ((val & 0b1100_0000) >> 6) as usize;
+        if self.power_on {
+            self.wave_pattern = ((val & 0b1100_0000) >> 6) as usize;
+        }
         self.length_counter.set(64 - (val as u16 & 0b0011_1111));
     }
 
@@ -404,7 +437,11 @@ impl SquareChannel {
 
     // 0xFF12 NR12
     pub fn envelope_write(&mut self, val: u8) {
-        self.envelope.set_vol(val & 0b1111_0000 >> 5);
+        if !self.power_on {
+            return;
+        }
+
+        self.envelope.set_vol((val & 0b1111_0000) >> 4);
         self.envelope.mode = val & 0b0000_1000 > 0;
         self.envelope.period = val & 0b0000_0111;
 
@@ -420,6 +457,10 @@ impl SquareChannel {
 
     // 0xFF13 NR13
     pub fn period_low_write(&mut self, val: u8) {
+        if !self.power_on {
+            return;
+        }
+
         // Set period's lower 8 bits to val
         self.period = (self.period & 0x0700) + val as u16;
     }
@@ -430,13 +471,18 @@ impl SquareChannel {
 
     // 0xFF14 NR14
     pub fn control_write(&mut self, val: u8) {
-        self.period = (self.period & 0xff) + ((val as u16 & 0x07) << 8);
-        if val & 0b1000_0000 > 0 {
-            self.trigger();
+        if !self.power_on {
+            return;
         }
+
+        self.period = (self.period & 0xff) + ((val as u16 & 0x07) << 8);
 
         if self.length_counter.enable(val & 0b0100_0000 > 0) {
             self.len_ctr_tick();
+        }
+
+        if val & 0b1000_0000 > 0 {
+            self.trigger();
         }
     }
 
@@ -467,6 +513,7 @@ impl SquareChannel {
 }
 
 pub struct WaveChannel {
+    power_on: bool,
     enabled: bool,
     dac_on: bool,
     length_counter: LengthCounter,
@@ -475,12 +522,14 @@ pub struct WaveChannel {
     period: u16,
     period_divider: u16,
     wave_ram: [u8; 16],
+    sample: u8,
     position: usize,
 }
 
 impl WaveChannel {
     pub fn new() -> Self {
         Self {
+            power_on: false,
             enabled: false,
             dac_on: false,
             length_counter: LengthCounter::new(),
@@ -488,7 +537,11 @@ impl WaveChannel {
             output_level: 0,
             period: 0,
             period_divider: 0,
-            wave_ram: [0; 16],
+            wave_ram: [
+                0x84, 0x40, 0x43, 0xAA, 0x2D, 0x78, 0x92, 0x3C, 0x60, 0x59, 0x59, 0xB0, 0x34, 0xB8,
+                0x2E, 0xDA,
+            ],
+            sample: 0,
             position: 0,
         }
     }
@@ -501,7 +554,7 @@ impl WaveChannel {
     }
 
     fn trigger(&mut self) {
-        self.enabled = self.enabled && self.dac_on;
+        self.enabled = self.dac_on;
         if self.length_counter.counter == 0
             && self.length_counter.next_frame_no_clock
             && self.length_counter.enabled
@@ -517,6 +570,10 @@ impl WaveChannel {
 
     // 0xFF1A NR30
     pub fn dac_enable_write(&mut self, val: u8) {
+        if !self.power_on {
+            return;
+        }
+
         self.dac_on = val & 0b1000_0000 > 0;
         if !self.dac_on {
             self.enabled = false;
@@ -534,6 +591,10 @@ impl WaveChannel {
 
     // 0xFF1C NR32
     pub fn output_level_write(&mut self, val: u8) {
+        if !self.power_on {
+            return;
+        }
+
         self.output_level = (val & 0b0110_0000) >> 5;
     }
 
@@ -543,6 +604,10 @@ impl WaveChannel {
 
     // 0xFF1D NR33
     pub fn period_low_write(&mut self, val: u8) {
+        if !self.power_on {
+            return;
+        }
+
         self.period = (self.period & 0x700) + val as u16;
     }
 
@@ -552,13 +617,19 @@ impl WaveChannel {
 
     // 0xFF1E NR34
     pub fn control_write(&mut self, val: u8) {
-        if val & 0b1000_0000 > 0 {
-            self.trigger()
+        if !self.power_on {
+            return;
         }
+
+        self.period = (self.period & 0xff) + ((val as u16 & 0x07) << 8);
+
         if self.length_counter.enable(val & 0b0100_0000 > 0) {
             self.len_ctr_tick();
         }
-        self.period = (self.period & 0xff) + ((val as u16 & 0x07) << 8);
+
+        if val & 0b1000_0000 > 0 {
+            self.trigger()
+        }
     }
 
     pub fn control_read(&self) -> u8 {
@@ -567,13 +638,23 @@ impl WaveChannel {
 
     // 0xFF30 - 0xFF3F Wave RAM
     pub fn wave_ram_write(&mut self, addr: u16, val: u8) {
+        if self.enabled {
+            return;
+        }
+
+        //eprintln!("Here");
         let offset = (addr - 0xff30) as usize;
+        //self.wave_ram[offset] = val;
         self.wave_ram[offset] = val;
     }
 
     pub fn wave_ram_read(&mut self, addr: u16) -> u8 {
-        let offset = (addr - 0xff30) as usize;
-        self.wave_ram[offset]
+        if !self.enabled {
+            let offset = (addr - 0xff30) as usize;
+            self.wave_ram[offset]
+        } else {
+            self.sample
+        }
     }
 
     fn tick(&mut self) {
@@ -585,15 +666,23 @@ impl WaveChannel {
             self.period_divider = 0x800 - self.period;
             self.position += 1;
             self.position %= 32;
+            self.sample = self.wave_ram[self.position / 2];
         }
     }
 
+    fn power_down(&mut self) {
+        self.dac_enable_write(0);
+        self.output_level_write(0);
+        self.period_low_write(0);
+        self.control_write(0);
+        self.power_on = false;
+    }
+
     fn output(&self) -> f32 {
-        let index = self.position / 2;
-        let sample = if self.position % 2 == 0 {
-            (self.wave_ram[index] & 0xf0) >> 4
+        let sample = if self.position == 0 {
+            (self.sample & 0xf0) >> 4
         } else {
-            self.wave_ram[index] & 0x0f
+            self.sample & 0x0f
         };
 
         let mut dac_input = match self.volume {
@@ -613,6 +702,7 @@ impl WaveChannel {
 }
 
 pub struct NoiseChannel {
+    power_on: bool,
     enabled: bool,
     dac_on: bool,
     length_counter: LengthCounter,
@@ -627,6 +717,7 @@ pub struct NoiseChannel {
 impl NoiseChannel {
     pub fn new() -> Self {
         Self {
+            power_on: false,
             enabled: false,
             dac_on: false,
             length_counter: LengthCounter::new(),
@@ -646,8 +737,16 @@ impl NoiseChannel {
         }
     }
 
+    fn power_down(&mut self) {
+        //self.length_timer(0);
+        self.envelope_write(0);
+        self.randomness_write(0);
+        self.control_write(0);
+        self.power_on = false;
+    }
+
     fn trigger(&mut self) {
-        self.enabled = self.enabled && self.dac_on;
+        self.enabled = self.dac_on;
         if self.length_counter.counter == 0
             && self.length_counter.next_frame_no_clock
             && self.length_counter.enabled
@@ -679,7 +778,11 @@ impl NoiseChannel {
     }
 
     fn output(&self) -> f32 {
-        let dac_input = if self.enabled { !self.lfsr & 0b1 } else { 0 };
+        let dac_input = if self.enabled {
+            self.envelope.volume * ((!self.lfsr as u8) & 0b1)
+        } else {
+            0
+        };
         1.0 - (dac_input as f32 / 7.5)
     }
 
@@ -690,7 +793,11 @@ impl NoiseChannel {
 
     // 0xFF21 NR42
     pub fn envelope_write(&mut self, val: u8) {
-        self.envelope.set_vol(val & 0b1111_0000 >> 5);
+        if !self.power_on {
+            return;
+        }
+
+        self.envelope.set_vol((val & 0b1111_0000) >> 4);
         self.envelope.mode = val & 0b0000_1000 > 0;
         self.envelope.period = val & 0b0000_0111;
 
@@ -706,6 +813,10 @@ impl NoiseChannel {
 
     // 0xFF22 NR43
     pub fn randomness_write(&mut self, val: u8) {
+        if !self.power_on {
+            return;
+        }
+
         self.clock_shift = (val & 0xf0) >> 4;
         self.lfsr_width = val & 0b0000_1000 > 0;
         // self.clock_divider = match val & 0b0000_0111 {
@@ -719,7 +830,8 @@ impl NoiseChannel {
         //     7 => 112,
         //     _ => panic!(),
         // };
-        self.clock_divider = 16 * (val & 0b0000_0111);
+        let div_code = val & 0b0000_0111;
+        self.clock_divider = if div_code == 0 { 8 } else { 16 * div_code };
     }
 
     pub fn randomness_read(&self) -> u8 {
@@ -731,11 +843,16 @@ impl NoiseChannel {
 
     // 0xFF23 NR44
     pub fn control_write(&mut self, val: u8) {
-        if val & 0b1000_0000 > 0 && self.dac_on {
-            self.trigger()
+        if !self.power_on {
+            return;
         }
+
         if self.length_counter.enable(val & 0b0100_0000 > 0) {
             self.len_ctr_tick();
+        }
+
+        if val & 0b1000_0000 > 0 {
+            self.trigger();
         }
     }
 
