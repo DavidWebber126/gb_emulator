@@ -395,11 +395,11 @@ impl Cpu {
         self.program_counter = self.program_counter.wrapping_add(bytes);
 
         // check if frame is ready to display
-        let mut output = None;
         if self.frame_ready {
-            output = Some(&self.bus.frame);
+            Some(&self.bus.last_frame)
+        } else {
+            None
         }
-        output
     }
 
     pub fn run(&mut self) {

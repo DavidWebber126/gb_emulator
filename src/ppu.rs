@@ -81,14 +81,14 @@ pub struct Ppu {
 }
 
 impl Ppu {
-    const MODE2_END: usize = 80;
-    const MODE3_START: usize = 81;
-    const MODE3_END: usize = 172 + Ppu::MODE2_END;
+    const MODE2_END: usize = 20;
+    const MODE3_START: usize = 21;
+    const MODE3_END: usize = 43 + Ppu::MODE2_END;
     const MODE0_START: usize = Ppu::MODE3_END + 1;
-    const MODE0_END: usize = 456;
-    const SCANLINE_LENGTH: usize = 456;
+    const MODE0_END: usize = 114;
+    const SCANLINE_LENGTH: usize = 114;
     const MAX_SCANLINE: u8 = 153;
-    const MODE1_START: u8 = 144;
+    const MODE1_SCANLINE_START: u8 = 144;
 
     pub fn new() -> Self {
         Self {
@@ -197,7 +197,7 @@ impl Ppu {
             }
 
             // vblank has started
-            if self.scanline == Ppu::MODE1_START {
+            if self.scanline == Ppu::MODE1_SCANLINE_START {
                 self.mode = Mode::MODE1;
                 result.2 = true;
                 if self.status.contains(Status::mode_one_select) {

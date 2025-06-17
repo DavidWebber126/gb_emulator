@@ -2,6 +2,7 @@ pub struct Apu {
     pub square1: SquareChannel,
     pub square2: SquareChannel,
     pub wave: WaveChannel,
+    wave_cycle: bool,
     pub noise: NoiseChannel,
     frame_seq_cycles: usize,
     pub frame: u8,
@@ -17,6 +18,7 @@ impl Apu {
             square1: SquareChannel::new(true),
             square2: SquareChannel::new(false),
             wave: WaveChannel::new(),
+            wave_cycle: false,
             noise: NoiseChannel::new(),
             frame_seq_cycles: 0,
             frame: 0,
@@ -28,18 +30,54 @@ impl Apu {
     }
 
     pub fn tick(&mut self) -> Option<f32> {
-        self.square1.tick();
-        self.square2.tick();
-        self.wave.tick();
-        self.noise.tick();
-        self.frame_cycle();
-        self.output_cycles += 1;
-        if self.output_cycles == 23 {
+        if self.output_cycles == 46 {
             self.output_cycles = 0;
+            if self.wave_cycle {
+                self.wave.tick();
+            } else {
+                self.square1.tick();
+                self.square2.tick();
+                self.wave.tick();
+                self.noise.tick();
+                self.frame_cycle();
+            }
+            let out = Some(self.output());
+            self.wave.tick();
+            out
+        } else if self.output_cycles == 47 {
+            self.output_cycles = 1;
+            self.wave_cycle = !self.wave_cycle;
+            self.wave.tick();
+            if self.wave_cycle {
+                self.wave.tick();
+            } else {
+                self.square1.tick();
+                self.square2.tick();
+                self.wave.tick();
+                self.noise.tick();
+                self.frame_cycle();
+            }
             Some(self.output())
         } else {
+            self.output_cycles += 2;
+            self.square1.tick();
+            self.square2.tick();
+            self.wave.tick();
+            self.wave.tick();
+            self.noise.tick();
+            self.frame_cycle();
             None
         }
+        // self.wave.tick();
+        // let out = self.output();
+
+        // self.output_cycles += 1;
+        // if self.output_cycles == 23 {
+        //     self.output_cycles = 0;
+        //     Some(self.output())
+        // } else {
+        //     None
+        // }
     }
 
     pub fn output(&mut self) -> f32 {
@@ -679,7 +717,7 @@ impl WaveChannel {
     }
 
     fn output(&self) -> f32 {
-        let sample = if self.position == 0 {
+        let sample = if (self.position % 2) == 0 {
             (self.sample & 0xf0) >> 4
         } else {
             self.sample & 0x0f

@@ -3,6 +3,7 @@ use crate::ppu::{Control, Ppu};
 // white, light gray, dark gray, black
 const GB_PALETTE: [(u8, u8, u8); 4] = [(155, 188, 15), (139, 172, 15), (48, 98, 48), (15, 56, 15)];
 
+#[derive(Clone)]
 pub struct Frame {
     pub data: Vec<u8>,
 }
