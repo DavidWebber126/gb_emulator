@@ -717,7 +717,7 @@ impl WaveChannel {
     }
 
     fn output(&self) -> f32 {
-        let sample = if (self.position % 2) == 0 {
+        let sample = if self.position % 2 == 0 {
             (self.sample & 0xf0) >> 4
         } else {
             self.sample & 0x0f
