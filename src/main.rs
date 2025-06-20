@@ -64,7 +64,7 @@ fn main() {
 
             // play audio
             audio_device.queue_audio(&cpu.bus.audio_buffer).unwrap();
-            while audio_device.size() > 5000 {}
+            while audio_device.size() > 10000 {}
 
             // check user input
             sdl2_setup::get_user_input(&mut event_pump, &mut cpu.bus.joypad);

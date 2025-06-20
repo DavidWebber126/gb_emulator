@@ -35,7 +35,7 @@ pub struct Bus {
     pub frame: Frame,
     pub last_frame: Frame,
     pub apu: Apu,
-    pub audio_buffer: [f32; 735],
+    pub audio_buffer: [f32; 1470],
     audio_buffer_index: usize,
 }
 
@@ -53,7 +53,7 @@ impl Bus {
             frame: Frame::new(),
             last_frame: Frame::new(),
             apu: Apu::new(),
-            audio_buffer: [0.0; 735],
+            audio_buffer: [0.0; 1470],
             audio_buffer_index: 0,
         }
     }
@@ -123,13 +123,14 @@ impl Bus {
         // APU
         let mut result = false;
         for _ in 0..cycles {
-            if let Some(amp) = self.apu.tick() {
-                if self.audio_buffer_index >= 735 {
+            if let Some((left, right)) = self.apu.tick() {
+                if self.audio_buffer_index >= 1470 {
                     result = true;
-                    self.audio_buffer_index -= 735;
+                    self.audio_buffer_index -= 1470;
                 }
-                self.audio_buffer[self.audio_buffer_index] = amp / 10.0;
-                self.audio_buffer_index += 1;
+                self.audio_buffer[self.audio_buffer_index] = left / 10.0;
+                self.audio_buffer[self.audio_buffer_index + 1] = right / 10.0;
+                self.audio_buffer_index += 2;
             }
         }
 

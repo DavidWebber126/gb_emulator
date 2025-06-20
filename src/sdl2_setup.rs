@@ -35,7 +35,7 @@ pub fn setup() -> (Canvas<Window>, EventPump, AudioQueue<f32>) {
     let audio_subsystem = sdl_context.audio().unwrap();
     let desired_spec = AudioSpecDesired {
         freq: Some(44_100),
-        channels: Some(1),
+        channels: Some(2),
         samples: Some(1024),
     };
     let audio_device = audio_subsystem
