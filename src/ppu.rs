@@ -69,6 +69,7 @@ pub struct Ppu {
     pub scx: u8,
     pub wy: u8,
     pub wx: u8,
+    pub window_counter: usize,
     pub bg_palette: u8,
     pub obp0: u8,
     pub obp1: u8,
@@ -101,6 +102,7 @@ impl Ppu {
             scx: 0,
             wy: 0,
             wx: 0,
+            window_counter: 0,
             bg_palette: 0,
             obp0: 0,
             obp1: 0,
@@ -190,6 +192,11 @@ impl Ppu {
             self.cycle %= Ppu::SCANLINE_LENGTH;
             self.scanline += 1;
 
+            // increment window internal counter if window enabled
+            if self.control.contains(Control::window_enable) && self.scanline > self.wy && self.wx < 160 {
+                self.window_counter += 1;
+            }
+
             // After vblank, reset to scanline 0
             if self.scanline > Ppu::MAX_SCANLINE {
                 self.scanline = 0;
@@ -199,6 +206,7 @@ impl Ppu {
             // vblank has started
             if self.scanline == Ppu::MODE1_SCANLINE_START {
                 self.mode = Mode::MODE1;
+                self.window_counter = 0;
                 result.2 = true;
                 if self.status.contains(Status::mode_one_select) {
                     // Trigger LCD Interrupt through return
@@ -276,6 +284,7 @@ impl Ppu {
             // Set only bottom 2 bits
             self.status = Status::from_bits_retain((self.status.bits() & 0b1111_1100) | new_mode);
         }
+
         result
     }
 }

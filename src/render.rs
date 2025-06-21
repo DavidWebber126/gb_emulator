@@ -37,7 +37,7 @@ impl Frame {
 fn get_win_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
     // Translate screen x, y coords onto window tile map by subtracting WX/WY
     let x_pos = x + 7 - ppu.wx as usize; // Plus 7 since WX is corner upper left + 7 pixels for some reason
-    let y_pos = y - ppu.wy as usize;
+    let y_pos = y;
     let tilemap_base = if ppu.control.contains(Control::window_map_area) {
         0x9c00
     } else {
@@ -155,7 +155,7 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
         && x + 7 >= ppu.wx as usize
         && y >= ppu.wy as usize
     {
-        get_win_tile_id(ppu, x, y)
+        get_win_tile_id(ppu, x, ppu.window_counter)
     } else {
         get_bg_tile_id(ppu, x, y)
     };

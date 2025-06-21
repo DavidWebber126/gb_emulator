@@ -27,7 +27,7 @@ impl Apu {
         }
     }
 
-    pub fn tick(&mut self) -> Option<(f32,f32)> {
+    pub fn tick(&mut self) -> Option<f32> {
         self.square1.tick();
         self.square2.tick();
         self.wave.tick();
@@ -43,48 +43,26 @@ impl Apu {
         }
     }
 
-    pub fn output(&mut self) -> (f32, f32) {
+    pub fn output(&mut self) -> f32 {
         // left
         let mut s1 = 0.0;
         let mut s2 = 0.0;
         let mut wave = 0.0;
         let mut noise = 0.0;
-        if self.square1.dac_on && self.audio_on && (self.sound_panning & 0b0001_0000 > 0) {
+        if self.square1.dac_on && self.audio_on {
             s1 = self.square1.output();
         }
-        if self.square2.dac_on && self.audio_on && (self.sound_panning & 0b0010_0000 > 0) {
+        if self.square2.dac_on && self.audio_on {
             s2 = self.square2.output();
         }
-        if self.wave.dac_on && self.audio_on && (self.sound_panning & 0b0100_0000 > 0) {
+        if self.wave.dac_on && self.audio_on {
             wave = self.wave.output();
         }
-        if self.noise.dac_on && self.audio_on && (self.sound_panning & 0b1000_0000 > 0) {
+        if self.noise.dac_on && self.audio_on {
             noise = self.noise.output();
         }
 
-        let left = (s1 + s2 + noise + wave) / 4.0;
-
-        // right
-        let mut s1 = 0.0;
-        let mut s2 = 0.0;
-        let mut wave = 0.0;
-        let mut noise = 0.0;
-        if self.square1.dac_on && self.audio_on && (self.sound_panning & 0b0000_0001 > 0) {
-            s1 = self.square1.output();
-        }
-        if self.square2.dac_on && self.audio_on && (self.sound_panning & 0b0000_0010 > 0) {
-            s2 = self.square2.output();
-        }
-        if self.wave.dac_on && self.audio_on && (self.sound_panning & 0b0000_0100 > 0) {
-            wave = self.wave.output();
-        }
-        if self.noise.dac_on && self.audio_on && (self.sound_panning & 0b0000_1000 > 0) {
-            noise = self.noise.output();
-        }
-
-        let right = (s1 + s2 + noise + wave) / 4.0;
-
-        (left, right)
+        (s1 + s2 + noise + wave) / 4.0
     }
 
     // 0xFF24 NR50
