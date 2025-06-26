@@ -44,7 +44,6 @@ impl Apu {
     }
 
     pub fn output(&mut self) -> f32 {
-        // left
         let mut s1 = 0.0;
         let mut s2 = 0.0;
         let mut wave = 0.0;
@@ -110,6 +109,7 @@ impl Apu {
             self.square1.power_on = true;
             self.square2.power_on = true;
             self.wave.power_on = true;
+            self.wave.sample = 0;
             self.noise.power_on = true;
         }
     }
@@ -494,12 +494,12 @@ impl SquareChannel {
     }
 
     fn tick(&mut self) {
-        if self.period_divider != 0 {
-            self.period_divider -= 1;
+        if self.period_divider <= 0x7FF {
+            self.period_divider += 1;
         }
 
-        if self.period_divider == 0 {
-            self.period_divider = 0x800 - self.period;
+        if self.period_divider > 0x7ff {
+            self.period_divider = self.period;
             self.duty_step += 1;
             self.duty_step %= 8;
         }
@@ -527,6 +527,7 @@ pub struct WaveChannel {
     wave_ram: [u8; 16],
     sample: u8,
     position: usize,
+    recent_access_cycles: u8,
 }
 
 impl WaveChannel {
@@ -540,12 +541,20 @@ impl WaveChannel {
             output_level: 0,
             period: 0,
             period_divider: 0,
+            wave_ram: [0; 16],
+            /* 
             wave_ram: [
                 0x84, 0x40, 0x43, 0xAA, 0x2D, 0x78, 0x92, 0x3C, 0x60, 0x59, 0x59, 0xB0, 0x34, 0xB8,
                 0x2E, 0xDA,
             ],
+            */
+            // wave_ram: [
+            //     0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff,
+            //     0x00, 0xff, 0x00, 0xff, 0x00, 0xff, 0x00, 0xff
+            // ],
             sample: 0,
             position: 0,
+            recent_access_cycles: 0,
         }
     }
 
@@ -641,35 +650,42 @@ impl WaveChannel {
 
     // 0xFF30 - 0xFF3F Wave RAM
     pub fn wave_ram_write(&mut self, addr: u16, val: u8) {
-        if self.enabled {
-            return;
+        //println!("Wave RAM write");
+        if !self.enabled {
+            let offset = (addr - 0xff30) as usize;
+            self.wave_ram[offset] = val;
+        } else if self.recent_access_cycles > 0 {
+            self.wave_ram[self.position / 2] = val;
         }
-
-        //eprintln!("Here");
-        let offset = (addr - 0xff30) as usize;
-        //self.wave_ram[offset] = val;
-        self.wave_ram[offset] = val;
     }
 
     pub fn wave_ram_read(&mut self, addr: u16) -> u8 {
+        //println!("Wave RAM read. Position: {}", self.position);
         if !self.enabled {
             let offset = (addr - 0xff30) as usize;
             self.wave_ram[offset]
-        } else {
+        } else if self.recent_access_cycles > 0 {
             self.sample
+        } else {
+            0xff
         }
     }
 
     fn tick(&mut self) {
-        if self.period_divider != 0 {
-            self.period_divider -= 1;
+        if self.recent_access_cycles > 0 {
+            self.recent_access_cycles -= 1;
         }
 
-        if self.period_divider == 0 {
-            self.period_divider = 0x800 - self.period;
+        if self.period_divider <= 0x7ff {
+            self.period_divider += 1;
+        }
+
+        if self.period_divider > 0x7ff {
+            self.period_divider = self.period;
             self.position += 1;
             self.position %= 32;
             self.sample = self.wave_ram[self.position / 2];
+            self.recent_access_cycles = 1;
         }
     }
 
@@ -679,6 +695,7 @@ impl WaveChannel {
         self.period_low_write(0);
         self.control_write(0);
         self.power_on = false;
+        self.sample = 0;
     }
 
     fn output(&self) -> f32 {
@@ -688,7 +705,7 @@ impl WaveChannel {
             self.sample & 0x0f
         };
 
-        let mut dac_input = match self.volume {
+        let mut dac_input = match self.output_level {
             0 => 0,
             1 => sample,
             2 => sample >> 1,
