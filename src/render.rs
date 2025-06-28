@@ -155,6 +155,7 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
         && x + 7 >= ppu.wx as usize
         && y >= ppu.wy as usize
     {
+        //eprintln!("Scanline: {}, window: {}, wy: {}", ppu.scanline, ppu.window_counter, ppu.wy);
         get_win_tile_id(ppu, x, ppu.window_counter)
     } else {
         get_bg_tile_id(ppu, x, y)

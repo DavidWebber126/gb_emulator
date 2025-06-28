@@ -36,8 +36,96 @@ pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
     match mapper {
         0 => Box::new(Mbc0::new(raw, ram_size)),
         1..=3 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
+        16..=19 => Box::new(Mbc3::new(raw, rom_size, ram_size)),
         _ => panic!("Mapper value {} not implemented yet", mapper),
     }
+}
+
+pub struct Mbc3 {
+    cartridge_rom: Vec<u8>,
+    cartridge_ram: Vec<u8>,
+    rom_size: usize,
+    ram_size: usize,
+    ram_enabled: bool,
+    rom_bank: u8,
+    ram_bank: u8,
+    banking_mode: bool,
+}
+
+impl Mbc3 {
+    fn new(rom: &[u8], rom_size: usize, ram_size: usize) -> Self {
+        let cartridge_rom = rom.to_vec();
+        let cartridge_ram = vec![0; ram_size];
+        Self {
+            cartridge_rom,
+            cartridge_ram,
+            rom_size,
+            ram_size,
+            ram_enabled: false,
+            rom_bank: 0,
+            ram_bank: 0,
+            banking_mode: true,
+        }
+    }
+}
+
+impl Mapper for Mbc3 {
+    fn read_bank0(&mut self, addr: u16) -> u8 {
+        let addr = addr as usize;
+        if self.banking_mode && self.rom_size > MIB {
+            // mode = 1
+            let bank = (self.ram_bank as usize) << 18; // ram_bank is also upper bits for rom bank
+            self.cartridge_rom[bank + addr]
+        } else {
+            // mode = 0
+            self.cartridge_rom[addr]
+        }
+    }
+
+    fn read_bankn(&mut self, addr: u16) -> u8 {
+        let addr = addr as usize - 0x4000; // get addr relative to base
+        let bank_base = (self.rom_bank as usize) << 14;
+        //println!("Addr: {:04X}, bank: {:04X}", addr, self.rom_bank);
+        if self.rom_size > MIB {
+            let upper_bank = (self.ram_bank as usize) << 18;
+            self.cartridge_rom[addr + bank_base + upper_bank]
+        } else {
+            self.cartridge_rom[addr + bank_base]
+        }
+    }
+
+    fn write_bank0(&mut self, addr: u16, val: u8) {
+        // RAM Enable register
+        if addr <= 0x1FFF {
+            self.ram_enabled = self.ram_size > 0 && (val & 0x0f == 0xa);
+        }
+        // ROM Bank Number
+        if (0x2000..=0x3FFF).contains(&addr) {
+            self.rom_bank = if val == 0 { 1 } else { val & 0x7f }
+        }
+    }
+
+    fn write_bankn(&mut self, addr: u16, val: u8) {
+        // RAM Bank Number or RTC select
+        if (0x4000..=0x5fff).contains(&addr) {
+            if val <= 0x07 {
+                self.banking_mode = true;
+            } else if val <= 0x0c {
+                self.banking_mode = false;
+            }
+        }
+
+        // Mode select
+        if (0x6000..=0x7fff).contains(&addr) {
+            self.banking_mode = val % 2 == 1;
+        }
+    }
+
+    fn ram_read(&mut self, addr: u16) -> u8 {
+        0
+    }
+
+    fn ram_write(&mut self, addr: u16, val: u8) {}
 }
 
 pub struct Mbc1 {

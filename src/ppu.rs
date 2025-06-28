@@ -193,7 +193,11 @@ impl Ppu {
             self.scanline += 1;
 
             // increment window internal counter if window enabled
-            if self.control.contains(Control::window_enable) && self.scanline > self.wy && self.wx < 160 {
+            if self.control.contains(Control::window_enable)
+                && self.scanline > self.wy
+                && self.wx < 167
+                && self.scanline < 144
+            {
                 self.window_counter += 1;
             }
 
