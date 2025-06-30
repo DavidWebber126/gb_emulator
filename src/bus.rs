@@ -173,8 +173,7 @@ impl Bus {
             // Echo RAM (Mirrors CPU Ram) - Shouldn't be used
             0xE000..=0xFDFF => {
                 panic!(
-                    "Echo RAM address used (Should not be used). Address: {:04X}",
-                    addr
+                    "Echo RAM address used (Should not be used). Address: {addr:04X}"
                 )
             }
             // OAM RAM
@@ -284,7 +283,7 @@ impl Bus {
             }
             // Interrupt Enable
             0xFFFF => self.interrupt_enable.bits(),
-            _ => panic!("Address {:04X} not used in memory map", addr),
+            _ => panic!("Address {addr:04X} not used in memory map"),
         }
     }
 
@@ -315,8 +314,7 @@ impl Bus {
             // Echo RAM (Mirrors CPU Ram) - Shouldn't be used
             0xE000..=0xFDFF => {
                 panic!(
-                    "Echo RAM address used (Should not be used). Address: {:04X}",
-                    addr
+                    "Echo RAM address used (Should not be used). Address: {addr:04X}"
                 )
             }
             // OAM RAM
@@ -410,8 +408,7 @@ impl Bus {
             0xFF43 => self.ppu.scx = data,
             // LCD Y coordinate is read only
             0xFF44 => panic!(
-                "LCD Y coordinate is read-only. Addr: {} Data: {}",
-                addr, data
+                "LCD Y coordinate is read-only. Addr: {addr} Data: {data}"
             ),
             // LYC
             0xFF45 => self.ppu.lyc = data,
@@ -453,7 +450,7 @@ impl Bus {
             0xFFFF => {
                 self.interrupt_enable = Interrupt::from_bits_retain(data & 0b0001_1111);
             }
-            _ => panic!("Address {:04X} not used in memory map", addr),
+            _ => panic!("Address {addr:04X} not used in memory map"),
         }
     }
 

@@ -152,7 +152,7 @@ impl Cpu {
             5 => self.l,
             6 => self.bus.mem_read(self.get_hl()),
             7 => self.a,
-            _ => panic!("Invalid r8 Register: {}", reg),
+            _ => panic!("Invalid r8 Register: {reg}"),
         }
     }
 
@@ -162,7 +162,7 @@ impl Cpu {
             1 => self.get_de(),
             2 => self.get_hl(),
             3 => self.stack_pointer,
-            _ => panic!("Invalid r16 Register: {}", reg),
+            _ => panic!("Invalid r16 Register: {reg}"),
         }
     }
 
@@ -172,7 +172,7 @@ impl Cpu {
             1 => self.get_de(),
             2 => self.get_hl(),
             3 => self.get_af(),
-            _ => panic!("Invalid r16 Register: {}", reg),
+            _ => panic!("Invalid r16 Register: {reg}"),
         }
     }
 
@@ -198,7 +198,7 @@ impl Cpu {
                 self.set_hl(addr.wrapping_sub(1));
                 val
             }
-            _ => panic!("Invalid r16 Register: {}", reg),
+            _ => panic!("Invalid r16 Register: {reg}"),
         }
     }
 
@@ -212,7 +212,7 @@ impl Cpu {
             5 => 0x28,
             6 => 0x30,
             7 => 0x38,
-            _ => panic!("Invalid tgt3 value: {}", reg),
+            _ => panic!("Invalid tgt3 value: {reg}"),
         }
     }
 
@@ -255,7 +255,7 @@ impl Cpu {
                 self.bus.mem_write(self.get_hl(), value);
             }
             7 => self.a = value,
-            _ => panic!("Impossible State. No reg value {}", reg),
+            _ => panic!("Impossible State. No reg value {reg}"),
         }
     }
 
@@ -265,7 +265,7 @@ impl Cpu {
             1 => self.set_de(value),
             2 => self.set_hl(value),
             3 => self.stack_pointer = value,
-            _ => panic!("Invalid State. No r16 value {}", reg),
+            _ => panic!("Invalid State. No r16 value {reg}"),
         }
     }
 
@@ -275,7 +275,7 @@ impl Cpu {
             1 => self.set_de(value),
             2 => self.set_hl(value),
             3 => self.set_af(value),
-            _ => panic!("Invalid State. No r16stk value {}", reg),
+            _ => panic!("Invalid State. No r16stk value {reg}"),
         }
     }
 
@@ -297,7 +297,7 @@ impl Cpu {
                 self.bus.mem_write(addr, value);
                 self.set_hl(addr.wrapping_sub(1));
             }
-            _ => panic!("Invalid State. No r16mem value {}", reg),
+            _ => panic!("Invalid State. No r16mem value {reg}"),
         }
     }
 
@@ -384,7 +384,7 @@ impl Cpu {
             let opcode_num = self.bus.mem_read(self.program_counter);
             let opcode = opcodes
                 .get(&opcode_num)
-                .unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_num));
+                .unwrap_or_else(|| panic!("Invalid opcode received: {opcode_num:02X}"));
 
             self.non_prefixed_opcodes(opcode_num, opcode);
             (opcode.cycles, opcode.bytes)
@@ -666,7 +666,7 @@ impl Cpu {
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
                     2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
-                    _ => panic!("Condition Codes are 0-3. Received {}", condition),
+                    _ => panic!("Condition Codes are 0-3. Received {condition}"),
                 };
                 if should_execute {
                     // inc cycle count
@@ -802,7 +802,7 @@ impl Cpu {
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
                     2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
-                    _ => panic!("Condition Codes are 0-3. Received {}", condition),
+                    _ => panic!("Condition Codes are 0-3. Received {condition}"),
                 };
                 if should_execute {
                     // inc cycle count
@@ -826,7 +826,7 @@ impl Cpu {
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
                     2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is not set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
-                    _ => panic!("Condition Codes are 0-3. Received {}", condition),
+                    _ => panic!("Condition Codes are 0-3. Received {condition}"),
                 };
                 if should_execute {
                     // inc cycle count
@@ -987,7 +987,7 @@ impl Cpu {
                     1 => self.flags.contains(CpuFlag::zero),  // Cond(1) => zero flag is set
                     2 => !self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is not set
                     3 => self.flags.contains(CpuFlag::carry), // Cond(3) => carry flag is set
-                    _ => panic!("Condition Codes are 0-3. Received {}", condition),
+                    _ => panic!("Condition Codes are 0-3. Received {condition}"),
                 };
                 if should_execute {
                     // inc cycle count

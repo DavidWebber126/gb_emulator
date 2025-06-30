@@ -1,3 +1,5 @@
+use chrono::{offset::Local, Datelike, Timelike};
+
 const ROM_PAGE_SIZE: usize = 32768;
 const KIB: usize = 1024;
 const MIB: usize = 1048576;
@@ -31,40 +33,52 @@ pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
     };
 
     let mapper = raw[0x0147];
-    eprintln!("Mapper is: {}", mapper);
-    eprintln!("Rom Size: 0x{:X}, Ram Size: 0x{:X}", rom_size, ram_size);
+    eprintln!("Mapper is: {mapper}");
+    eprintln!("Rom Size: 0x{rom_size:X}, Ram Size: 0x{ram_size:X}");
     match mapper {
         0 => Box::new(Mbc0::new(raw, ram_size)),
         1..=3 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
-        16..=19 => Box::new(Mbc3::new(raw, rom_size, ram_size)),
-        _ => panic!("Mapper value {} not implemented yet", mapper),
+        16..=19 => Box::new(Mbc3::new(raw, ram_size)),
+        _ => panic!("Mapper value {mapper} not implemented yet"),
     }
 }
 
 pub struct Mbc3 {
     cartridge_rom: Vec<u8>,
     cartridge_ram: Vec<u8>,
-    rom_size: usize,
     ram_size: usize,
     ram_enabled: bool,
     rom_bank: u8,
-    ram_bank: u8,
-    banking_mode: bool,
+    bank_or_register: u8,
+    rtc_prior_val: bool,
+    rtc_s: u8,
+    rtc_m: u8,
+    rtc_h: u8,
+    rtc_dl: u8,
+    rtc_day_upper: bool,
+    rtc_halt: bool,
+    rtc_carry: bool,
 }
 
 impl Mbc3 {
-    fn new(rom: &[u8], rom_size: usize, ram_size: usize) -> Self {
+    fn new(rom: &[u8], ram_size: usize) -> Self {
         let cartridge_rom = rom.to_vec();
         let cartridge_ram = vec![0; ram_size];
         Self {
             cartridge_rom,
             cartridge_ram,
-            rom_size,
             ram_size,
             ram_enabled: false,
-            rom_bank: 0,
-            ram_bank: 0,
-            banking_mode: true,
+            rom_bank: 1,
+            bank_or_register: 0,
+            rtc_prior_val: false,
+            rtc_s: 0,
+            rtc_m: 0,
+            rtc_h: 0,
+            rtc_dl: 0,
+            rtc_day_upper: false,
+            rtc_halt: false,
+            rtc_carry: false,
         }
     }
 }
@@ -72,26 +86,13 @@ impl Mbc3 {
 impl Mapper for Mbc3 {
     fn read_bank0(&mut self, addr: u16) -> u8 {
         let addr = addr as usize;
-        if self.banking_mode && self.rom_size > MIB {
-            // mode = 1
-            let bank = (self.ram_bank as usize) << 18; // ram_bank is also upper bits for rom bank
-            self.cartridge_rom[bank + addr]
-        } else {
-            // mode = 0
-            self.cartridge_rom[addr]
-        }
+        self.cartridge_rom[addr]
     }
 
     fn read_bankn(&mut self, addr: u16) -> u8 {
         let addr = addr as usize - 0x4000; // get addr relative to base
         let bank_base = (self.rom_bank as usize) << 14;
-        //println!("Addr: {:04X}, bank: {:04X}", addr, self.rom_bank);
-        if self.rom_size > MIB {
-            let upper_bank = (self.ram_bank as usize) << 18;
-            self.cartridge_rom[addr + bank_base + upper_bank]
-        } else {
-            self.cartridge_rom[addr + bank_base]
-        }
+        self.cartridge_rom[addr + bank_base]
     }
 
     fn write_bank0(&mut self, addr: u16, val: u8) {
@@ -107,25 +108,67 @@ impl Mapper for Mbc3 {
 
     fn write_bankn(&mut self, addr: u16, val: u8) {
         // RAM Bank Number or RTC select
-        if (0x4000..=0x5fff).contains(&addr) {
-            if val <= 0x07 {
-                self.banking_mode = true;
-            } else if val <= 0x0c {
-                self.banking_mode = false;
-            }
+        if (0x4000..=0x5fff).contains(&addr) && val <= 0x0c{
+            self.bank_or_register = val;
         }
 
-        // Mode select
+        // Latch Clock Data
         if (0x6000..=0x7fff).contains(&addr) {
-            self.banking_mode = val % 2 == 1;
+            if val == 0 {
+                self.rtc_prior_val = true;
+            } else if self.rtc_prior_val && val == 1 {
+                self.rtc_prior_val = false;
+                let now = Local::now();
+
+                self.rtc_s = now.second() as u8;
+                self.rtc_m = now.minute() as u8;
+                self.rtc_h = now.hour() as u8;
+                let day = now.ordinal0();
+                self.rtc_dl = day as u8;
+                self.rtc_day_upper = day & 0xf0 > 0;
+            } else {
+                self.rtc_prior_val = false;
+            }
         }
     }
 
     fn ram_read(&mut self, addr: u16) -> u8 {
-        0
+        match self.bank_or_register {
+            0..=0x07 => {
+                let addr = addr - 0xA000;
+                self.cartridge_ram[addr as usize]
+            }
+            0x08 => self.rtc_s,
+            0x09 => self.rtc_m,
+            0x0a => self.rtc_h,
+            0x0b => self.rtc_dl,
+            0x0c => {
+                let carry = (self.rtc_carry as u8) << 7;
+                let halt = (self.rtc_halt as u8) << 6;
+                carry + halt + self.rtc_day_upper as u8
+            }
+            _ => panic!("Impossible"),
+        }
     }
 
-    fn ram_write(&mut self, addr: u16, val: u8) {}
+    fn ram_write(&mut self, addr: u16, val: u8) {
+        match self.bank_or_register {
+            0..=0x07 => {
+                let addr = addr - 0xA000;
+                self.cartridge_ram[addr as usize] = val;
+            }
+            0x08 => self.rtc_s = val,
+            0x09 => self.rtc_m = val,
+            0x0a => self.rtc_h = val,
+            0x0b => self.rtc_dl = val,
+            0x0c => {
+                self.rtc_carry = val & 0b1000_0000 > 0;
+                self.rtc_halt = val & 0b0100_0000 > 0;
+                self.rtc_day_upper = val & 0b0000_0001 > 0;
+            }
+            _ => panic!("Impossible"),
+        }
+    }
 }
 
 pub struct Mbc1 {

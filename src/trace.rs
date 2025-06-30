@@ -16,7 +16,7 @@ pub fn trace_cpu(cpu: &mut Cpu) {
         let opcodes: &HashMap<u8, opcodes::Opcode> = &opcodes::CPU_OP_CODES;
         let opcode = opcodes
             .get(&opcode_byte)
-            .unwrap_or_else(|| panic!("Invalid opcode received: {:02X}", opcode_byte));
+            .unwrap_or_else(|| panic!("Invalid opcode received: {opcode_byte:02X}"));
         (opcode, opcode.name)
     };
 
@@ -26,14 +26,14 @@ pub fn trace_cpu(cpu: &mut Cpu) {
         opcode_as_bytes.push(cpu.bus.mem_read(pc.wrapping_add(i)));
     }
 
-    let mut opcode_format = format!("{:02X}", opcode_byte);
+    let mut opcode_format = format!("{opcode_byte:02X}");
     // Todo: Add Assembly style format of the opcode and values
     // let mut asm_format = format!("{}", opcode.name);
     if let Some(first_byte) = opcode_as_bytes.first() {
-        opcode_format = format!("{} {:02X}", opcode_format, first_byte);
+        opcode_format = format!("{opcode_format} {first_byte:02X}");
     }
     if let Some(second_byte) = opcode_as_bytes.get(1) {
-        opcode_format = format!("{} {:02X}", opcode_format, second_byte);
+        opcode_format = format!("{opcode_format} {second_byte:02X}");
     }
 
     // Print out formatted log
@@ -53,5 +53,5 @@ pub fn trace_cpu(cpu: &mut Cpu) {
         cpu.bus.ppu.cycle,
         cpu.bus.ppu.scanline,
     );
-    println!("{}", log);
+    println!("{log}");
 }
