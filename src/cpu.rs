@@ -109,38 +109,11 @@ impl Cpu {
         self.push_u8_to_stack(lo);
     }
 
-    // fn pop_u8_from_stack(&mut self) -> u8 {
-    //     self.stack_pointer += 1;
-    //     self.bus.mem_read(self.stack_pointer)
-    // }
-
     fn pop_u16_from_stack(&mut self) -> u16 {
         let val = self.bus.mem_read_u16(self.stack_pointer);
         self.stack_pointer = self.stack_pointer.wrapping_add(2);
         val
     }
-
-    // fn reg_read(&mut self, target: &TargetReg) -> Option<u16> {
-    //     match target {
-    //         TargetReg::R8(reg) => Some(self.r8_read(*reg) as u16),
-    //         TargetReg::R16(reg) => Some(self.r16_read(*reg)),
-    //         TargetReg::R16stk(reg) => Some(self.r16stk_read(*reg)),
-    //         TargetReg::R16mem(reg) => Some(self.r16mem_read(*reg) as u16),
-    //         TargetReg::Cond(code) => Some(*code as u16),
-    //         TargetReg::Tgt3(reg) => Some(self.tgt3_read(*reg)),
-    //         TargetReg::B3(bit) => Some(*bit as u16),
-    //         TargetReg::A => Some(self.a as u16),
-    //         TargetReg::SP => Some(self.stack_pointer),
-    //         TargetReg::C => Some(self.bus.mem_read(0xff00 + self.c as u16) as u16),
-    //         TargetReg::Imm16 => Some(self.bus.mem_read_u16(self.program_counter + 1)),
-    //         TargetReg::Imm8 => Some(self.bus.mem_read(self.program_counter + 1) as u16),
-    //         TargetReg::Ptr => {
-    //             let addr = self.bus.mem_read_u16(self.program_counter + 1);
-    //             Some(self.bus.mem_read(addr) as u16)
-    //         }
-    //         _ => panic!("{:?} is not implemented yet", target),
-    //     }
-    // }
 
     fn r8_read(&mut self, reg: u8) -> u8 {
         match reg {
@@ -215,33 +188,6 @@ impl Cpu {
             _ => panic!("Invalid tgt3 value: {reg}"),
         }
     }
-
-    // fn reg_write(&mut self, target: &TargetReg, data: u16) {
-    //     match target {
-    //         TargetReg::R8(reg) => self.r8_write(*reg, (data & 0xff) as u8),
-    //         TargetReg::R16(reg) => self.r16_write(*reg, data),
-    //         TargetReg::R16stk(reg) => self.r16stk_write(*reg, data),
-    //         TargetReg::R16mem(reg) => self.r16mem_write(*reg, data),
-    //         TargetReg::A => self.a = (data & 0xff) as u8,
-    //         TargetReg::SP => self.stack_pointer = data,
-    //         TargetReg::C => self
-    //             .bus
-    //             .mem_write(0xff00 + self.c as u16, (data & 0xff) as u8),
-    //         TargetReg::Ptr => {
-    //             let addr = self.bus.mem_read_u16(self.program_counter + 1);
-    //             self.bus.mem_write(addr, data as u8);
-    //         }
-    //         TargetReg::Imm8 => {
-    //             let addr = self.bus.mem_read(self.program_counter + 1);
-    //             self.bus.mem_write(0xff00 + addr as u16, data as u8);
-    //         }
-    //         TargetReg::Imm16 => {
-    //             let addr = self.bus.mem_read_u16(self.program_counter + 1);
-    //             self.bus.mem_write_u16(addr, data);
-    //         }
-    //         _ => panic!("{:?} is not implemented yet", target),
-    //     }
-    // }
 
     fn r8_write(&mut self, reg: u8, value: u8) {
         match reg {
