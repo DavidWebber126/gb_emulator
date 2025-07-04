@@ -51,7 +51,7 @@ pub fn trace_cpu(cpu: &mut Cpu) {
         cpu.ime,
         cpu.bus.interrupt_enable,
         cpu.bus.interrupt_flag,
-        cpu.bus.ppu.status,
+        cpu.bus.ppu.control,
         cpu.bus.ppu.cycle,
         cpu.bus.ppu.scanline,
     );

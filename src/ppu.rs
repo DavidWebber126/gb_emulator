@@ -95,7 +95,7 @@ impl Ppu {
         Self {
             vram: [0; 0x2000],
             oam: [0; 0xA0],
-            control: Control::from_bits_retain(0),
+            control: Control::from_bits_retain(0x80),
             status: Status::from_bits_retain(0),
             lyc: 0,
             scy: 0,
@@ -117,7 +117,14 @@ impl Ppu {
     }
 
     pub fn write_to_ctrl(&mut self, val: u8) {
+        let prior_lcd_status = self.control.bits() & 0x80 > 0;
         self.control = Control::from_bits_retain(val);
+        // Power off LCD if going from on to off
+        if prior_lcd_status && val & 0x80 == 0 {
+            self.scanline = 0;
+            self.cycle = 0;
+            self.mode = Mode::MODE0;
+        }
     }
 
     pub fn read_ctrl(&self) -> u8 {
@@ -185,9 +192,13 @@ impl Ppu {
     // 456 cycles per scanline. 154 scanlines, last 10 (144-153 inclusive) are vblank
     // First bool is LCD interrupt, second is vblank interrupt
     pub fn tick(&mut self, cycles: u8) -> (DisplayStatus, bool, bool) {
+        let mut result: (DisplayStatus, bool, bool) = (DisplayStatus::DoNothing, false, false);
+        if !self.control.contains(Control::lcd_enable) {
+            return result
+        }
+
         self.cycle += cycles as usize;
         let prior_mode = self.mode;
-        let mut result: (DisplayStatus, bool, bool) = (DisplayStatus::DoNothing, false, false);
         if self.cycle > Ppu::SCANLINE_LENGTH {
             self.cycle %= Ppu::SCANLINE_LENGTH;
             self.scanline += 1;
