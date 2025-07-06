@@ -86,8 +86,8 @@ impl Ppu {
     const MODE3_START: usize = 21;
     const MODE3_END: usize = 43 + Ppu::MODE2_END;
     const MODE0_START: usize = Ppu::MODE3_END + 1;
-    const MODE0_END: usize = 114;
-    const SCANLINE_LENGTH: usize = 114;
+    const MODE0_END: usize = 113;
+    //const SCANLINE_LENGTH: usize = 113;
     const MAX_SCANLINE: u8 = 153;
     const MODE1_SCANLINE_START: u8 = 144;
 
@@ -132,7 +132,8 @@ impl Ppu {
     }
 
     pub fn write_status(&mut self, val: u8) {
-        self.status = Status::from_bits_retain(val);
+        let old_status = self.status.bits() & 0x03;
+        self.status = Status::from_bits_retain(val & 0x78 + old_status);
     }
 
     pub fn read_status(&self) -> u8 {
@@ -145,7 +146,7 @@ impl Ppu {
         if !self.control.contains(Control::lcd_enable) {
             mode = 0
         }
-        self.status.bits() + mode
+        self.status.bits() & 0xfc + mode
     }
 
     pub fn read_vram(&self, addr: u16) -> u8 {
@@ -199,8 +200,8 @@ impl Ppu {
 
         self.cycle += cycles as usize;
         let prior_mode = self.mode;
-        if self.cycle > Ppu::SCANLINE_LENGTH {
-            self.cycle %= Ppu::SCANLINE_LENGTH;
+        if self.cycle > Ppu::MODE0_END {
+            self.cycle %= Ppu::MODE0_END;
             self.scanline += 1;
 
             // increment window internal counter if window enabled

@@ -21,7 +21,7 @@ fn main() {
     let (mut canvas, mut event_pump, audio_device) = sdl2_setup::setup();
     let texture_creator = canvas.texture_creator();
     let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
-    let bytes: Vec<u8> = std::fs::read("roms/kirby dream land 2.gb").expect("No ROM File with that name");
+    let bytes: Vec<u8> = std::fs::read("roms/altered space.gb").expect("No ROM File with that name");
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
     let mut cpu = Cpu::new(bus);
