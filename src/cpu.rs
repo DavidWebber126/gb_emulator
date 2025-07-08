@@ -99,7 +99,7 @@ impl Cpu {
     }
 
     fn push_u8_to_stack(&mut self, val: u8) {
-        self.stack_pointer -= 1;
+        self.stack_pointer = self.stack_pointer.wrapping_sub(1);
         self.bus.mem_write(self.stack_pointer, val);
     }
 

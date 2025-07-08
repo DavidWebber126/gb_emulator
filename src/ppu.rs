@@ -133,7 +133,7 @@ impl Ppu {
 
     pub fn write_status(&mut self, val: u8) {
         let old_status = self.status.bits() & 0x03;
-        self.status = Status::from_bits_retain(val & 0x78 + old_status);
+        self.status = Status::from_bits_retain((val & 0x78) + old_status);
     }
 
     pub fn read_status(&self) -> u8 {
@@ -146,7 +146,7 @@ impl Ppu {
         if !self.control.contains(Control::lcd_enable) {
             mode = 0
         }
-        self.status.bits() & 0xfc + mode
+        (self.status.bits() & 0xfc) + mode
     }
 
     pub fn read_vram(&self, addr: u16) -> u8 {
@@ -195,7 +195,7 @@ impl Ppu {
     pub fn tick(&mut self, cycles: u8) -> (DisplayStatus, bool, bool) {
         let mut result: (DisplayStatus, bool, bool) = (DisplayStatus::DoNothing, false, false);
         if !self.control.contains(Control::lcd_enable) {
-            return result
+            return result;
         }
 
         self.cycle += cycles as usize;
@@ -226,14 +226,6 @@ impl Ppu {
                 result.2 = true;
                 if self.status.contains(Status::mode_one_select) {
                     // Trigger LCD Interrupt through return
-                    result.1 = true;
-                }
-            }
-
-            if self.scanline == self.lyc {
-                self.status.insert(Status::compare);
-                // Trigger LCD Interrupt through return
-                if self.status.contains(Status::lyc_select) {
                     result.1 = true;
                 }
             }
@@ -284,6 +276,15 @@ impl Ppu {
             if self.mode == Mode::MODE3 {
                 // Entered drawing stage. Draw new scanline
                 result.0 = DisplayStatus::NewScanline;
+            }
+
+            // Check for LYC == LY interrupt
+            if self.scanline == self.lyc {
+                self.status.insert(Status::compare);
+                // Trigger LCD Interrupt through return
+                if self.status.contains(Status::lyc_select) {
+                    result.1 = true;
+                }
             }
 
             // Update PPU mode in status. Need to use bits since PPU mode is 2 bits wide

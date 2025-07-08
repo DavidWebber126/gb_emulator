@@ -108,7 +108,7 @@ impl Mapper for Mbc3 {
 
     fn write_bankn(&mut self, addr: u16, val: u8) {
         // RAM Bank Number or RTC select
-        if (0x4000..=0x5fff).contains(&addr) && val <= 0x0c{
+        if (0x4000..=0x5fff).contains(&addr) && val <= 0x0c {
             self.bank_or_register = val;
         }
 

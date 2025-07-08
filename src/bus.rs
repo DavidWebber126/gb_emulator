@@ -172,9 +172,7 @@ impl Bus {
             }
             // Echo RAM (Mirrors CPU Ram) - Shouldn't be used
             0xE000..=0xFDFF => {
-                panic!(
-                    "Echo RAM address used (Should not be used). Address: {addr:04X}"
-                )
+                panic!("Echo RAM address used (Should not be used). Address: {addr:04X}")
             }
             // OAM RAM
             0xFE00..=0xFE9F => self.ppu.oam_read(addr),
@@ -188,7 +186,7 @@ impl Bus {
             // Joypad Input
             0xFF00 => self.joypad.read(),
             // Serial transfer
-            0xFF01 | 0xFF02 => todo!("Implement serial transfer"),
+            0xFF01 | 0xFF02 => 0, //todo!("Implement serial transfer"),
             // DIV
             0xFF04 => self.timer.divider_counter,
             // TIMA
@@ -263,6 +261,7 @@ impl Bus {
             0xFF44 => self.ppu.scanline,
             // LYC
             0xFF45 => self.ppu.lyc,
+            // OAM
             // BGP
             0xFF47 => self.ppu.bg_palette,
             // OBP0
@@ -313,9 +312,7 @@ impl Bus {
             }
             // Echo RAM (Mirrors CPU Ram) - Shouldn't be used
             0xE000..=0xFDFF => {
-                panic!(
-                    "Echo RAM address used (Should not be used). Address: {addr:04X}"
-                )
+                panic!("Echo RAM address used (Should not be used). Address: {addr:04X}")
             }
             // OAM RAM
             0xFE00..=0xFE9F => {
@@ -407,9 +404,7 @@ impl Bus {
             // SCX: Scroll X value
             0xFF43 => self.ppu.scx = data,
             // LCD Y coordinate is read only
-            0xFF44 => panic!(
-                "LCD Y coordinate is read-only. Addr: {addr} Data: {data}"
-            ),
+            0xFF44 => panic!("LCD Y coordinate is read-only. Addr: {addr} Data: {data}"),
             // LYC
             0xFF45 => self.ppu.lyc = data,
             // OAM DMA source address and start
