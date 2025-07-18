@@ -132,8 +132,9 @@ impl Ppu {
     }
 
     pub fn write_status(&mut self, val: u8) {
-        let old_status = self.status.bits() & 0x03;
-        self.status = Status::from_bits_retain((val & 0x78) + old_status);
+        let old_status = self.status.bits();
+        // retain read only registers from old status
+        self.status = Status::from_bits_retain((val & 0x78) + (old_status & 0x07));
     }
 
     pub fn read_status(&self) -> u8 {
@@ -229,6 +230,15 @@ impl Ppu {
                     result.1 = true;
                 }
             }
+
+            // Check for LYC == LY interrupt
+            if self.scanline == self.lyc {
+                self.status.insert(Status::compare);
+                // Trigger LCD Interrupt through return
+                if self.status.contains(Status::lyc_select) {
+                    result.1 = true;
+                }
+            }
         }
 
         if self.mode != Mode::MODE1 {
@@ -276,15 +286,6 @@ impl Ppu {
             if self.mode == Mode::MODE3 {
                 // Entered drawing stage. Draw new scanline
                 result.0 = DisplayStatus::NewScanline;
-            }
-
-            // Check for LYC == LY interrupt
-            if self.scanline == self.lyc {
-                self.status.insert(Status::compare);
-                // Trigger LCD Interrupt through return
-                if self.status.contains(Status::lyc_select) {
-                    result.1 = true;
-                }
             }
 
             // Update PPU mode in status. Need to use bits since PPU mode is 2 bits wide
