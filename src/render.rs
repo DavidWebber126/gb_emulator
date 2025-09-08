@@ -149,7 +149,7 @@ fn get_pixel_data(ppu: &Ppu, x: u8, y: u8, tile_id: u8, is_obj: bool) -> u8 {
     }
 }
 
-fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
+fn render_pixel(ppu: &Ppu, x: usize, y: usize, frame: &mut Frame) {
     // If pixel is in window area, fetch window pixel. Otherwise fetch background pixel
     let (tile_id, x_pos, y_pos) = if ppu.control.contains(Control::window_enable)
         && x + 7 >= ppu.wx as usize
@@ -186,7 +186,7 @@ fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
     frame.set_pixel(x, y, pixel);
 }
 
-pub fn render_scanline(ppu: &mut Ppu, frame: &mut Frame) {
+pub fn render_scanline(ppu: &Ppu, frame: &mut Frame) {
     let current_scanline = ppu.scanline as usize;
     for i in 0..Frame::WIDTH {
         render_pixel(ppu, i, current_scanline, frame);
