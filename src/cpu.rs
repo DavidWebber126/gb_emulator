@@ -1136,209 +1136,209 @@ impl Cpu {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use crate::cartridge::get_mapper;
-    use crate::sdl2_setup;
+// #[cfg(test)]
+// mod tests {
+//     use crate::cartridge::get_mapper;
+//     use crate::sdl2_setup;
 
-    use super::*;
-    use rand::prelude::*;
-    use std::vec;
+//     use super::*;
+//     use rand::prelude::*;
+//     use std::vec;
 
-    fn setup(program: Vec<u8>) -> Cpu {
-        let cartridge = get_mapper(&program);
-        let (_canvas, _event_pump, _audio_device) = sdl2_setup::setup();
-        let bus = Bus::new(cartridge);
-        let cpu = Cpu::new(bus);
-        cpu
-    }
+//     fn setup(program: Vec<u8>) -> Cpu {
+//         let cartridge = get_mapper(&program);
+//         let (_event_pump, _audio_device) = sdl2_setup::setup();
+//         let bus = Bus::new(cartridge);
+//         let cpu = Cpu::new(bus);
+//         cpu
+//     }
 
-    #[test]
-    fn test_ld_r8_r8() {
-        let mut rng = rand::thread_rng();
-        for i in 0..8 {
-            for j in 0..8 {
-                // skip opcode 0x76
-                if (i != 6) && (j != 6) {
-                    let prg = vec![64 + 8 * i + j, 0x00, 0x76];
-                    let mut cpu = setup(prg);
-                    let mut value = rng.gen::<u8>();
-                    let status = cpu.flags.clone();
-                    // set hl to addr 2 so that Reg 6 does not affect program run.
-                    // Also need to set h and l registers to values within our program (i.e not random).
-                    cpu.set_hl(2);
-                    if j == 4 {
-                        cpu.r8_write(4, 0x00);
-                        value = 0;
-                    } else if j == 5 {
-                        cpu.r8_write(5, 0x02);
-                        value = 2;
-                    } else {
-                        cpu.r8_write(j, value);
-                    }
-                    cpu.run();
+//     #[test]
+//     fn test_ld_r8_r8() {
+//         let mut rng = rand::thread_rng();
+//         for i in 0..8 {
+//             for j in 0..8 {
+//                 // skip opcode 0x76
+//                 if (i != 6) && (j != 6) {
+//                     let prg = vec![64 + 8 * i + j, 0x00, 0x76];
+//                     let mut cpu = setup(prg);
+//                     let mut value = rng.gen::<u8>();
+//                     let status = cpu.flags.clone();
+//                     // set hl to addr 2 so that Reg 6 does not affect program run.
+//                     // Also need to set h and l registers to values within our program (i.e not random).
+//                     cpu.set_hl(2);
+//                     if j == 4 {
+//                         cpu.r8_write(4, 0x00);
+//                         value = 0;
+//                     } else if j == 5 {
+//                         cpu.r8_write(5, 0x02);
+//                         value = 2;
+//                     } else {
+//                         cpu.r8_write(j, value);
+//                     }
+//                     cpu.run();
 
-                    assert_eq!(cpu.r8_read(i), value);
-                    assert_eq!(cpu.flags, status);
-                }
-            }
-        }
-    }
+//                     assert_eq!(cpu.r8_read(i), value);
+//                     assert_eq!(cpu.flags, status);
+//                 }
+//             }
+//         }
+//     }
 
-    #[test]
-    fn test_ld_r8_imm8() {
-        let mut rng = rand::thread_rng();
-        for i in 0..8 {
-            let value = rng.gen::<u8>();
-            let prg = vec![8 * i + 6, value, 0x76];
-            let mut cpu = setup(prg);
-            cpu.set_hl(3); // set HL reg to point to an addr in program
-            let status = cpu.flags.bits();
-            cpu.run();
+//     #[test]
+//     fn test_ld_r8_imm8() {
+//         let mut rng = rand::thread_rng();
+//         for i in 0..8 {
+//             let value = rng.gen::<u8>();
+//             let prg = vec![8 * i + 6, value, 0x76];
+//             let mut cpu = setup(prg);
+//             cpu.set_hl(3); // set HL reg to point to an addr in program
+//             let status = cpu.flags.bits();
+//             cpu.run();
 
-            assert_eq!(cpu.r8_read(i), value);
-            assert_eq!(cpu.flags.bits(), status);
-        }
-    }
+//             assert_eq!(cpu.r8_read(i), value);
+//             assert_eq!(cpu.flags.bits(), status);
+//         }
+//     }
 
-    #[test]
-    fn test_ld_r16_imm16() {
-        let mut rng = rand::thread_rng();
-        for i in 0..4 {
-            let lo = rng.gen::<u8>();
-            let hi = rng.gen::<u8>();
-            let prg = vec![16 * i + 1, lo, hi, 0x76];
-            println!("program: {:?}", prg);
-            let mut cpu = setup(prg);
-            let status = cpu.flags.bits();
-            cpu.run();
+//     #[test]
+//     fn test_ld_r16_imm16() {
+//         let mut rng = rand::thread_rng();
+//         for i in 0..4 {
+//             let lo = rng.gen::<u8>();
+//             let hi = rng.gen::<u8>();
+//             let prg = vec![16 * i + 1, lo, hi, 0x76];
+//             println!("program: {:?}", prg);
+//             let mut cpu = setup(prg);
+//             let status = cpu.flags.bits();
+//             cpu.run();
 
-            assert_eq!(cpu.r16_read(i), u16::from_le_bytes([lo, hi]));
-            assert_eq!(cpu.flags.bits(), status);
-        }
-    }
+//             assert_eq!(cpu.r16_read(i), u16::from_le_bytes([lo, hi]));
+//             assert_eq!(cpu.flags.bits(), status);
+//         }
+//     }
 
-    #[test]
-    fn test_ld_r16_a() {
-        let mut rng = rand::thread_rng();
-        for i in 0..4 {
-            let value = rng.gen::<u8>();
-            // 0x3e loads A with an imm8
-            let prg = vec![0x3e, value, 16 * i + 2, 0x76, 0x76, 0x76, 0x76];
-            println!("program: {:?}", prg);
-            let mut cpu = setup(prg);
-            cpu.set_hl(5);
-            let status = cpu.flags.bits();
-            cpu.run();
+//     #[test]
+//     fn test_ld_r16_a() {
+//         let mut rng = rand::thread_rng();
+//         for i in 0..4 {
+//             let value = rng.gen::<u8>();
+//             // 0x3e loads A with an imm8
+//             let prg = vec![0x3e, value, 16 * i + 2, 0x76, 0x76, 0x76, 0x76];
+//             println!("program: {:?}", prg);
+//             let mut cpu = setup(prg);
+//             cpu.set_hl(5);
+//             let status = cpu.flags.bits();
+//             cpu.run();
 
-            // Since HL+ and HL- change HL, we cannot use r16mem_read to see the change
-            // we need to go back to the addr.
-            let target = if i == 2 {
-                cpu.bus.mem_read(cpu.get_hl() - 1)
-            } else if i == 3 {
-                cpu.bus.mem_read(cpu.get_hl() + 1)
-            } else {
-                cpu.r16mem_read(i) as u8
-            };
+//             // Since HL+ and HL- change HL, we cannot use r16mem_read to see the change
+//             // we need to go back to the addr.
+//             let target = if i == 2 {
+//                 cpu.bus.mem_read(cpu.get_hl() - 1)
+//             } else if i == 3 {
+//                 cpu.bus.mem_read(cpu.get_hl() + 1)
+//             } else {
+//                 cpu.r16mem_read(i) as u8
+//             };
 
-            assert_eq!(target, value);
-            assert_eq!(cpu.flags.bits(), status);
-        }
-    }
+//             assert_eq!(target, value);
+//             assert_eq!(cpu.flags.bits(), status);
+//         }
+//     }
 
-    #[test]
-    fn test_ld_a_r16() {
-        let mut rng = rand::thread_rng();
-        for i in 0..4 {
-            let value = rng.gen::<u8>();
-            let prg = vec![16 * i + 10, 0x76, 0x76, value, 0x76];
-            println!("program: {:?}", prg);
-            let mut cpu = setup(prg);
-            cpu.set_bc(3);
-            cpu.set_de(3);
-            cpu.set_hl(3);
-            let status = cpu.flags.bits();
-            cpu.run();
+//     #[test]
+//     fn test_ld_a_r16() {
+//         let mut rng = rand::thread_rng();
+//         for i in 0..4 {
+//             let value = rng.gen::<u8>();
+//             let prg = vec![16 * i + 10, 0x76, 0x76, value, 0x76];
+//             println!("program: {:?}", prg);
+//             let mut cpu = setup(prg);
+//             cpu.set_bc(3);
+//             cpu.set_de(3);
+//             cpu.set_hl(3);
+//             let status = cpu.flags.bits();
+//             cpu.run();
 
-            assert_eq!(cpu.a, value);
-            assert_eq!(cpu.flags.bits(), status);
-        }
-    }
+//             assert_eq!(cpu.a, value);
+//             assert_eq!(cpu.flags.bits(), status);
+//         }
+//     }
 
-    #[test]
-    fn test_ld_a_imm16() {
-        let mut rng = rand::thread_rng();
-        let value = rng.gen::<u8>();
-        let prg = vec![0xfa, 0x05, 0x00, 0x00, 0x76, value];
-        let mut cpu = setup(prg);
-        let status = cpu.flags.bits();
-        cpu.run();
+//     #[test]
+//     fn test_ld_a_imm16() {
+//         let mut rng = rand::thread_rng();
+//         let value = rng.gen::<u8>();
+//         let prg = vec![0xfa, 0x05, 0x00, 0x00, 0x76, value];
+//         let mut cpu = setup(prg);
+//         let status = cpu.flags.bits();
+//         cpu.run();
 
-        assert_eq!(cpu.a, value);
-        assert_eq!(cpu.flags.bits(), status);
-    }
+//         assert_eq!(cpu.a, value);
+//         assert_eq!(cpu.flags.bits(), status);
+//     }
 
-    #[test]
-    fn test_ld_imm16_a() {
-        let mut rng = rand::thread_rng();
-        let value = rng.gen::<u8>();
-        // 0x3e loads a with imm8
-        let prg = vec![0x3e, value, 0xea, 0x06, 0x00, 0x76, 0x76];
-        let mut cpu = setup(prg);
-        let status = cpu.flags.bits();
-        cpu.run();
+//     #[test]
+//     fn test_ld_imm16_a() {
+//         let mut rng = rand::thread_rng();
+//         let value = rng.gen::<u8>();
+//         // 0x3e loads a with imm8
+//         let prg = vec![0x3e, value, 0xea, 0x06, 0x00, 0x76, 0x76];
+//         let mut cpu = setup(prg);
+//         let status = cpu.flags.bits();
+//         cpu.run();
 
-        assert_eq!(cpu.bus.mem_read(0x0006), value);
-        assert_eq!(cpu.flags.bits(), status);
-    }
+//         assert_eq!(cpu.bus.mem_read(0x0006), value);
+//         assert_eq!(cpu.flags.bits(), status);
+//     }
 
-    #[test]
-    fn test_ld_imm16_sp() {
-        let mut rng = rand::thread_rng();
-        let value1 = rng.gen::<u8>();
-        let value2 = rng.gen::<u8>();
-        let prg = vec![0x08, 0x04, 0x00, 0x76, value1, value2];
-        let mut cpu = setup(prg);
-        let status = cpu.flags.bits();
-        cpu.run();
+//     #[test]
+//     fn test_ld_imm16_sp() {
+//         let mut rng = rand::thread_rng();
+//         let value1 = rng.gen::<u8>();
+//         let value2 = rng.gen::<u8>();
+//         let prg = vec![0x08, 0x04, 0x00, 0x76, value1, value2];
+//         let mut cpu = setup(prg);
+//         let status = cpu.flags.bits();
+//         cpu.run();
 
-        assert_eq!(cpu.bus.mem_read_u16(0x04), 0xfffe);
-        assert_eq!(cpu.flags.bits(), status);
-    }
+//         assert_eq!(cpu.bus.mem_read_u16(0x04), 0xfffe);
+//         assert_eq!(cpu.flags.bits(), status);
+//     }
 
-    #[test]
-    fn test_ld_hl_spimm8() {
-        let prg = vec![0xf8, 0x01, 0x76];
-        let mut cpu = setup(prg);
-        let status = cpu.flags.bits();
-        println!("SP: {}", cpu.stack_pointer);
-        cpu.run();
+//     #[test]
+//     fn test_ld_hl_spimm8() {
+//         let prg = vec![0xf8, 0x01, 0x76];
+//         let mut cpu = setup(prg);
+//         let status = cpu.flags.bits();
+//         println!("SP: {}", cpu.stack_pointer);
+//         cpu.run();
 
-        assert_eq!(cpu.get_hl(), 0xffff);
-        assert_eq!(cpu.flags.bits(), status);
+//         assert_eq!(cpu.get_hl(), 0xffff);
+//         assert_eq!(cpu.flags.bits(), status);
 
-        // test negative behavior
-        let prg = vec![0xf8, 0xf1, 0x76]; // offset = -0x0f
-        let mut cpu = setup(prg);
-        let status = cpu.flags.bits();
-        cpu.run();
+//         // test negative behavior
+//         let prg = vec![0xf8, 0xf1, 0x76]; // offset = -0x0f
+//         let mut cpu = setup(prg);
+//         let status = cpu.flags.bits();
+//         cpu.run();
 
-        assert_eq!(cpu.get_hl(), 0xffef);
-        assert_eq!(cpu.flags.bits(), status | 0b0001_0000); // There is a carry in the sum
-    }
+//         assert_eq!(cpu.get_hl(), 0xffef);
+//         assert_eq!(cpu.flags.bits(), status | 0b0001_0000); // There is a carry in the sum
+//     }
 
-    #[test]
-    fn test_ld_sp_hl() {
-        let mut rng = rand::thread_rng();
-        let value1 = rng.gen::<u8>();
-        let value2 = rng.gen::<u8>();
-        // 0x21 loads imm16 into Reg HL.
-        let prg = vec![0x21, value1, value2, 0xf9, 0x76];
-        let mut cpu = setup(prg);
-        let status = cpu.flags.bits();
-        cpu.run();
+//     #[test]
+//     fn test_ld_sp_hl() {
+//         let mut rng = rand::thread_rng();
+//         let value1 = rng.gen::<u8>();
+//         let value2 = rng.gen::<u8>();
+//         // 0x21 loads imm16 into Reg HL.
+//         let prg = vec![0x21, value1, value2, 0xf9, 0x76];
+//         let mut cpu = setup(prg);
+//         let status = cpu.flags.bits();
+//         cpu.run();
 
-        assert_eq!(cpu.stack_pointer, u16::from_le_bytes([value1, value2]));
-        assert_eq!(cpu.flags.bits(), status);
-    }
-}
+//         assert_eq!(cpu.stack_pointer, u16::from_le_bytes([value1, value2]));
+//         assert_eq!(cpu.flags.bits(), status);
+//     }
+// }

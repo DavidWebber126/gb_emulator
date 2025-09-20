@@ -2,6 +2,7 @@ mod apu;
 mod bus;
 mod cartridge;
 mod cpu;
+mod frontend;
 mod joypad;
 mod opcodes;
 mod ppu;
@@ -12,30 +13,59 @@ mod trace;
 
 use bus::Bus;
 use cpu::Cpu;
+use frontend::MyApp;
 
 use std::env;
 use std::time::Instant;
 
-fn main() {
+use eframe::egui;
+
+fn main() -> eframe::Result {
     let args: String = env::args().collect();
-    let (mut canvas, mut event_pump, audio_device) = sdl2_setup::setup();
-    let texture_creator = canvas.texture_creator();
-    let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
-    let bytes: Vec<u8> = std::fs::read("roms/tetris.gb").expect("No ROM File with that name");
+    let (event_pump, audio_device) = sdl2_setup::setup();
+    //let texture_creator = canvas.texture_creator();
+    //let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
+    let bytes: Vec<u8> =
+        std::fs::read("roms/zelda link's awakening.gb").expect("No ROM File with that name");
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
-    let mut cpu = Cpu::new(bus);
+    let cpu = Cpu::new(bus);
 
     let trace_on = args.contains("trace");
     if trace_on {
         eprintln!("Trace is on");
     }
     let show_fps = args.contains("show-fps");
-    let mut frame_count = 0;
-    let mut baseline = Instant::now();
+    let frame_count = 0;
+    let baseline = Instant::now();
     if show_fps {
         eprintln!("Show FPS is on");
-    }
+    };
+
+    // eframe setup
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size([992.0, 558.0]),
+        ..Default::default()
+    };
+
+    eframe::run_native(
+        "GB Emulator",
+        options,
+        Box::new(|cc| {
+            Ok(Box::<MyApp>::new(MyApp::new(
+                show_fps,
+                frame_count,
+                baseline,
+                trace_on,
+                audio_device,
+                event_pump,
+                cpu,
+                cc,
+            )))
+        }),
+    )
+
+    /*
     // Enter game loop
     loop {
         if show_fps && frame_count == 0 {
@@ -75,4 +105,5 @@ fn main() {
             }
         }
     }
+    */
 }

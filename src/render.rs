@@ -1,11 +1,12 @@
 use crate::ppu::{Control, Ppu};
+use eframe::egui::{self, Color32};
 
 // white, light gray, dark gray, black
 const GB_PALETTE: [(u8, u8, u8); 4] = [(155, 188, 15), (139, 172, 15), (48, 98, 48), (15, 56, 15)];
 
 #[derive(Clone)]
 pub struct Frame {
-    pub data: Vec<u8>,
+    pub data: Vec<egui::Color32>,
 }
 
 impl Frame {
@@ -14,23 +15,20 @@ impl Frame {
 
     pub fn new() -> Frame {
         Self {
-            data: vec![0; 3 * Frame::WIDTH * Frame::HEIGHT],
+            data: vec![Color32::PLACEHOLDER; Frame::WIDTH * Frame::HEIGHT],
         }
     }
 
     pub fn set_pixel(&mut self, x: usize, y: usize, rgb: (u8, u8, u8)) {
-        let base = y * 3 * Frame::WIDTH + x * 3;
-        if base + 2 < self.data.len() {
-            self.data[base] = rgb.0;
-            self.data[base + 1] = rgb.1;
-            self.data[base + 2] = rgb.2;
-        }
+        let color = egui::Color32::from_rgb(rgb.0, rgb.1, rgb.2);
+        let base = y * Frame::WIDTH + x;
+        self.data[base] = color;
     }
 
-    pub fn _get_pixel(&self, x: usize, y: usize) -> (u8, u8, u8) {
-        let base = y * 3 * Frame::WIDTH + x * 3;
-        (self.data[base], self.data[base + 1], self.data[base + 2])
-    }
+    // pub fn _get_pixel(&self, x: usize, y: usize) -> (u8, u8, u8) {
+    //     let base = y * Frame::WIDTH + x;
+    //     base = self.data[base];
+    // }
 }
 
 // returns (tile_id, x_pos, y_pos)
