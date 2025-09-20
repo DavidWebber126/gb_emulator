@@ -3,19 +3,19 @@ use std::collections::HashMap;
 use lazy_static::lazy_static;
 
 use sdl2::audio::{AudioQueue, AudioSpecDesired};
-use sdl2::event::Event;
+//use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 // use sdl2::pixels::PixelFormatEnum;
 // use sdl2::render::{Canvas, Texture, TextureCreator};
 // use sdl2::video::{Window, WindowContext};
-use sdl2::EventPump;
+//use sdl2::EventPump;
 
-use crate::joypad::Joypad;
+//use crate::joypad::Joypad;
 
 // const WIDTH: f64 = 160.0;
 // const HEIGHT: f64 = 144.0;
 
-pub fn setup() -> (EventPump, AudioQueue<f32>) {
+pub fn setup() -> AudioQueue<f32> {
     // init sdl2
     let sdl_context = sdl2::init().unwrap();
 
@@ -30,7 +30,7 @@ pub fn setup() -> (EventPump, AudioQueue<f32>) {
     */
 
     //let mut canvas = window.into_canvas().present_vsync().build().unwrap();
-    let event_pump = sdl_context.event_pump().unwrap();
+    //let event_pump = sdl_context.event_pump().unwrap();
     //canvas.set_scale(3.0, 3.0).unwrap();
 
     //Audio system
@@ -45,7 +45,7 @@ pub fn setup() -> (EventPump, AudioQueue<f32>) {
         .unwrap();
     audio_device.resume();
 
-    (event_pump, audio_device)
+    audio_device
 }
 
 // Create a "target" texture so that we can use our Renderer with it later
@@ -75,25 +75,25 @@ lazy_static! {
     };
 }
 
-pub fn get_user_input(event_pump: &mut EventPump, joypad: &mut Joypad) {
-    for event in event_pump.poll_iter() {
-        match event {
-            Event::Quit { .. }
-            | Event::KeyDown {
-                keycode: Some(Keycode::Escape),
-                ..
-            } => std::process::exit(0),
-            Event::KeyDown { keycode, .. } => {
-                if let Some(&(mode, button)) = KEY_MAP.get(&keycode.unwrap_or(Keycode::Ampersand)) {
-                    joypad.button_pressed_status(mode, button, true);
-                }
-            }
-            Event::KeyUp { keycode, .. } => {
-                if let Some(&(mode, button)) = KEY_MAP.get(&keycode.unwrap_or(Keycode::Ampersand)) {
-                    joypad.button_pressed_status(mode, button, false);
-                }
-            }
-            _ => { /* do nothing */ }
-        }
-    }
-}
+// pub fn get_user_input(event_pump: &mut EventPump, joypad: &mut Joypad) {
+//     for event in event_pump.poll_iter() {
+//         match event {
+//             Event::Quit { .. }
+//             | Event::KeyDown {
+//                 keycode: Some(Keycode::Escape),
+//                 ..
+//             } => std::process::exit(0),
+//             Event::KeyDown { keycode, .. } => {
+//                 if let Some(&(mode, button)) = KEY_MAP.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+//                     joypad.button_pressed_status(mode, button, true);
+//                 }
+//             }
+//             Event::KeyUp { keycode, .. } => {
+//                 if let Some(&(mode, button)) = KEY_MAP.get(&keycode.unwrap_or(Keycode::Ampersand)) {
+//                     joypad.button_pressed_status(mode, button, false);
+//                 }
+//             }
+//             _ => { /* do nothing */ }
+//         }
+//     }
+// }

@@ -79,6 +79,9 @@ pub struct Ppu {
     pub scanline: u8,
     mode: Mode,
     pub scanline_oams: Vec<usize>, // hold the up to 10 OAMs on current scanline. Referenced by first byte in four byte sequence
+
+    // GUI
+    pub screen_options: ScreenOptions,
 }
 
 impl Ppu {
@@ -113,6 +116,8 @@ impl Ppu {
 
             cycle: 0,
             scanline: 0,
+
+            screen_options: ScreenOptions::All,
         }
     }
 
@@ -305,4 +310,12 @@ impl Ppu {
 
         result
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ScreenOptions {
+    All,
+    SpritesOnly,
+    BackgroundOnly,
+    WindowOnly,
 }

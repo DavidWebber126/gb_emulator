@@ -22,11 +22,11 @@ use eframe::egui;
 
 fn main() -> eframe::Result {
     let args: String = env::args().collect();
-    let (event_pump, audio_device) = sdl2_setup::setup();
+    let audio_device = sdl2_setup::setup();
     //let texture_creator = canvas.texture_creator();
     //let mut texture = sdl2_setup::dummy_texture(&texture_creator).unwrap();
     let bytes: Vec<u8> =
-        std::fs::read("roms/zelda link's awakening.gb").expect("No ROM File with that name");
+        std::fs::read("roms/super mario land.gb").expect("No ROM File with that name");
     let cartridge = cartridge::get_mapper(&bytes);
     let bus = Bus::new(cartridge);
     let cpu = Cpu::new(bus);
@@ -58,7 +58,6 @@ fn main() -> eframe::Result {
                 baseline,
                 trace_on,
                 audio_device,
-                event_pump,
                 cpu,
                 cc,
             )))

@@ -1,4 +1,4 @@
-use crate::ppu::{Control, Ppu};
+use crate::ppu::{Control, Ppu, ScreenOptions};
 use eframe::egui::{self, Color32};
 
 // white, light gray, dark gray, black
@@ -32,7 +32,7 @@ impl Frame {
 }
 
 // returns (tile_id, x_pos, y_pos)
-fn get_win_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
+fn get_win_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8, bool) {
     // Translate screen x, y coords onto window tile map by subtracting WX/WY
     let x_pos = x + 7 - ppu.wx as usize; // Plus 7 since WX is corner upper left + 7 pixels for some reason
     let y_pos = y;
@@ -49,11 +49,12 @@ fn get_win_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
         ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16),
         x_p,
         y_p,
+        true,
     )
 }
 
 // x,y are screen coordinates i.e 0 <= x < 160 and 0 <= y < 144
-fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
+fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8, bool) {
     // Translate screen x,y coords onto the tile map by using scroll registers
     let x_pos = (x + ppu.scx as usize) % 256;
     let y_pos = (y + ppu.scy as usize) % 256;
@@ -70,6 +71,7 @@ fn get_bg_tile_id(ppu: &Ppu, x: usize, y: usize) -> (u8, u8, u8) {
         ppu.read_vram(tilemap_base + tile_x as u16 + 32 * tile_y as u16),
         x_p,
         y_p,
+        false,
     )
 }
 
@@ -149,7 +151,7 @@ fn get_pixel_data(ppu: &Ppu, x: u8, y: u8, tile_id: u8, is_obj: bool) -> u8 {
 
 fn render_pixel(ppu: &Ppu, x: usize, y: usize, frame: &mut Frame) {
     // If pixel is in window area, fetch window pixel. Otherwise fetch background pixel
-    let (tile_id, x_pos, y_pos) = if ppu.control.contains(Control::window_enable)
+    let (tile_id, x_pos, y_pos, is_window) = if ppu.control.contains(Control::window_enable)
         && x + 7 >= ppu.wx as usize
         && y >= ppu.wy as usize
     {
@@ -170,13 +172,33 @@ fn render_pixel(ppu: &Ppu, x: usize, y: usize, frame: &mut Frame) {
     };
 
     // Decide which has priority and draw to Frame
-    let pixel = match (ppu.control.contains(Control::obj_enable), obj_pixel) {
-        (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
-        _ => {
-            if ppu.control.contains(Control::bg_win_enable) {
+    let pixel = match ppu.screen_options {
+        ScreenOptions::All => match (ppu.control.contains(Control::obj_enable), obj_pixel) {
+            (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
+            _ => {
+                if ppu.control.contains(Control::bg_win_enable) {
+                    GB_PALETTE[bg_pixel as usize]
+                } else {
+                    GB_PALETTE[0]
+                }
+            }
+        },
+        ScreenOptions::BackgroundOnly => {
+            if !is_window {
                 GB_PALETTE[bg_pixel as usize]
             } else {
-                GB_PALETTE[0]
+                (0, 0, 0)
+            }
+        }
+        ScreenOptions::SpritesOnly => match obj_pixel {
+            Some(pixel) => GB_PALETTE[pixel as usize],
+            None => (0, 0, 0),
+        },
+        ScreenOptions::WindowOnly => {
+            if is_window {
+                GB_PALETTE[bg_pixel as usize]
+            } else {
+                (0, 0, 0)
             }
         }
     };
