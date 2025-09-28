@@ -38,6 +38,7 @@ pub fn get_mapper(raw: &[u8]) -> Box<dyn Mapper> {
     match mapper {
         0 => Box::new(Mbc0::new(raw, ram_size)),
         1..=3 => Box::new(Mbc1::new(raw, rom_size, ram_size)),
+        5..=6 => Box::new(Mbc2::new(raw, ram_size)),
         16..=19 => Box::new(Mbc3::new(raw, ram_size)),
         _ => panic!("Mapper value {mapper} not implemented yet"),
     }
@@ -168,6 +169,72 @@ impl Mapper for Mbc3 {
             }
             _ => panic!("Impossible"),
         }
+    }
+}
+
+pub struct Mbc2 {
+    ram_enabled: bool,
+    rom_bank: u8,
+    ram_size: usize,
+    cartridge_rom: Vec<u8>,
+    cartridge_ram: Vec<u8>,
+}
+
+impl Mbc2 {
+    fn new(rom: &[u8], ram_size: usize) -> Self {
+        let cartridge_rom = rom.to_vec();
+        let cartridge_ram = vec![0; ram_size];
+        Self {
+            rom_bank: 1,
+            ram_enabled: false,
+            ram_size,
+            cartridge_rom,
+            cartridge_ram,
+        }
+    }
+}
+
+impl Mapper for Mbc2 {
+    fn read_bank0(&mut self, addr: u16) -> u8 {
+        let addr = addr as usize;
+        self.cartridge_rom[addr]
+    }
+
+    fn read_bankn(&mut self, addr: u16) -> u8 {
+        let addr = addr as usize - 0x4000; // get addr relative to base
+        let bank_base = (self.rom_bank as usize) << 14;
+        self.cartridge_rom[addr + bank_base]
+    }
+
+    fn write_bank0(&mut self, addr: u16, val: u8) {
+        if addr & 0x0100 > 0 {
+            self.rom_bank = val & 0x0f;
+            if self.rom_bank == 0 {
+                self.rom_bank = 1;
+            }
+        } else {
+            self.ram_enabled = val & 0x0f == 0x0a;
+        }
+    }
+
+    fn write_bankn(&mut self, _addr: u16, _val: u8) {
+        // does nothing
+    }
+
+    fn ram_read(&mut self, addr: u16) -> u8 {
+        if !self.ram_enabled || self.ram_size == 0 {
+            return 0;
+        }
+        let addr = ((addr as usize) - 0xA000) & 0x1FF;
+        self.cartridge_ram[addr]
+    }
+
+    fn ram_write(&mut self, addr: u16, val: u8) {
+        if !self.ram_enabled || self.ram_size == 0 {
+            return;
+        }
+        let addr = ((addr as usize) - 0xA000) & 0x1FF;
+        self.cartridge_ram[addr] = val;
     }
 }
 

@@ -1,30 +1,78 @@
 use eframe::egui::{self, Event};
+use egui_plot::{Line, Plot, PlotPoints};
 use sdl2::audio::AudioQueue;
 
 use lazy_static::lazy_static;
 
-use crate::ppu::ScreenOptions;
+use crate::apu;
 use crate::render;
 use crate::Cpu;
 
 use std::collections::HashMap;
 use std::time::Instant;
+use std::{fs, path::PathBuf};
+
+pub struct GameSelect<'a> {
+    filepaths: Vec<PathBuf>,
+    selected_item: Option<PathBuf>,
+    selected_game: &'a mut Option<PathBuf>,
+}
+
+impl<'a> GameSelect<'a> {
+    pub fn new(selected_game: &'a mut Option<PathBuf>) -> Self {
+        let paths = fs::read_dir("roms/games/").unwrap();
+        let mut filepaths = Vec::new();
+        for path in paths {
+            filepaths.push(path.unwrap().path());
+        }
+        Self {
+            filepaths: filepaths,
+            selected_item: None,
+            selected_game,
+        }
+    }
+}
+
+impl eframe::App for GameSelect<'_> {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::CentralPanel::default().show(ctx, |ui| {
+            if self.selected_item.is_none() {
+                egui::ComboBox::from_label("Select a Game: ").show_ui(ui, |ui| {
+                    for file in &self.filepaths {
+                        ui.selectable_value(
+                            &mut self.selected_item,
+                            Some(file.clone()),
+                            file.to_string_lossy().strip_prefix("roms/games/").unwrap(),
+                        );
+                    }
+                });
+            } else {
+                *self.selected_game = self.selected_item.clone();
+            }
+        });
+    }
+}
 
 pub struct MyApp {
+    screen_options: ScreenOptions,
+    map_options: MapOptions,
+    audio_display: AudioDisplay,
     side_panel: SidePanel,
     paused: bool,
-    show_fps: bool,
+    fps: f32,
     frame_count: i32,
     baseline: Instant,
     trace_on: bool,
     audio_device: AudioQueue<f32>,
     cpu: Cpu,
     texture: egui::TextureHandle,
+    tilemap_one_texture: egui::TextureHandle,
+    tilemap_two_texture: egui::TextureHandle,
+    sprite_texture: egui::TextureHandle,
 }
 
 impl MyApp {
     pub fn new(
-        show_fps: bool,
         frame_count: i32,
         baseline: Instant,
         trace_on: bool,
@@ -33,15 +81,33 @@ impl MyApp {
         cc: &eframe::CreationContext<'_>,
     ) -> Self {
         Self {
+            screen_options: ScreenOptions::All,
+            map_options: MapOptions::Tilemap1,
+            audio_display: AudioDisplay::SquareOne,
             side_panel: SidePanel::Cpu,
             paused: false,
-            show_fps,
+            fps: 0.0,
             frame_count,
             baseline,
             trace_on,
             audio_device,
             cpu,
             texture: cc.egui_ctx.load_texture(
+                "Noise",
+                egui::ColorImage::example(),
+                egui::TextureOptions::NEAREST,
+            ),
+            tilemap_one_texture: cc.egui_ctx.load_texture(
+                "Noise",
+                egui::ColorImage::example(),
+                egui::TextureOptions::NEAREST,
+            ),
+            tilemap_two_texture: cc.egui_ctx.load_texture(
+                "Noise",
+                egui::ColorImage::example(),
+                egui::TextureOptions::NEAREST,
+            ),
+            sprite_texture: cc.egui_ctx.load_texture(
                 "Noise",
                 egui::ColorImage::example(),
                 egui::TextureOptions::NEAREST,
@@ -115,11 +181,19 @@ impl eframe::App for MyApp {
             }
         });
 
+        // PPU Screen Option. Decide which frame to render
+        let frame = match self.screen_options {
+            ScreenOptions::All => new_frame.unwrap().data,
+            ScreenOptions::BackgroundOnly => self.cpu.bus.ppu.bg_screen.to_vec(),
+            ScreenOptions::WindowOnly => self.cpu.bus.ppu.win_screen.to_vec(),
+            ScreenOptions::SpritesOnly => self.cpu.bus.ppu.spr_screen.to_vec(),
+        };
+
         self.texture.set(
             egui::ColorImage {
                 size: [160, 144],
                 source_size: egui::Vec2 { x: 160.0, y: 144.0 },
-                pixels: new_frame.unwrap().data,
+                pixels: frame,
             },
             egui::TextureOptions::NEAREST,
         );
@@ -148,34 +222,209 @@ impl eframe::App for MyApp {
                         }
                     }
                     SidePanel::Ppu => {
-                        ui.add(egui::Label::new(
-                            "This is where PPU tile map, window and sprites will go",
-                        ));
                         ui.horizontal(|ui| {
                             ui.selectable_value(
-                                &mut self.cpu.bus.ppu.screen_options,
+                                &mut self.screen_options,
                                 ScreenOptions::All,
                                 "Normal",
                             );
                             ui.selectable_value(
-                                &mut self.cpu.bus.ppu.screen_options,
+                                &mut self.screen_options,
                                 ScreenOptions::BackgroundOnly,
                                 "Background",
                             );
                             ui.selectable_value(
-                                &mut self.cpu.bus.ppu.screen_options,
+                                &mut self.screen_options,
                                 ScreenOptions::WindowOnly,
                                 "Window",
                             );
                             ui.selectable_value(
-                                &mut self.cpu.bus.ppu.screen_options,
+                                &mut self.screen_options,
                                 ScreenOptions::SpritesOnly,
                                 "Sprites",
                             );
                         });
+
+                        ui.heading("Current PPU State: ");
+                        let ppu_str = format!(
+                            "Cycles: {}, Scanline: {},\nScroll X, Y: ({}, {}), Window X, Y: ({}, {})\nPPU Status: {:08b}     PPU Control: {:08b}",
+                            self.cpu.bus.ppu.cycle,
+                            self.cpu.bus.ppu.scanline,
+                            self.cpu.bus.ppu.scx,
+                            self.cpu.bus.ppu.scy,
+                            self.cpu.bus.ppu.wx,
+                            self.cpu.bus.ppu.wy,
+                            self.cpu.bus.ppu.status.bits(),
+                            self.cpu.bus.ppu.control.bits(),
+                        );
+                        ui.heading(ppu_str);
+
+                        ui.horizontal(|ui| {
+                            ui.selectable_value(
+                                &mut self.map_options,
+                                MapOptions::Tilemap1,
+                                "Tile Map 1",
+                            );
+                            ui.selectable_value(
+                                &mut self.map_options,
+                                MapOptions::Tilemap2,
+                                "Tile Map 2",
+                            );
+                            ui.selectable_value(
+                                &mut self.map_options,
+                                MapOptions::Sprites,
+                                "Sprites",
+                            );
+                        });
+
+                        match self.map_options {
+                            MapOptions::Tilemap1 => {
+                                render::tilemap_one(&mut self.cpu.bus.ppu);
+
+                                self.tilemap_one_texture.set(
+                                    egui::ColorImage {
+                                        size: [256, 256],
+                                        source_size: egui::Vec2 { x: 256.0, y: 256.0 },
+                                        pixels: self.cpu.bus.ppu.tilemap_one.to_vec(),
+                                    },
+                                    egui::TextureOptions::NEAREST,
+                                );
+                                let tilemap_one = egui::load::SizedTexture::new(
+                                    self.tilemap_one_texture.id(),
+                                    [256.0, 256.0],
+                                );
+
+                                ui.add(
+                                    egui::Image::new(tilemap_one)
+                                        .fit_to_exact_size(egui::vec2(256.0, 256.0)),
+                                );
+                            }
+                            MapOptions::Tilemap2 => {
+                                render::tilemap_two(&mut self.cpu.bus.ppu);
+
+                                self.tilemap_two_texture.set(
+                                    egui::ColorImage {
+                                        size: [256, 256],
+                                        source_size: egui::Vec2 { x: 256.0, y: 256.0 },
+                                        pixels: self.cpu.bus.ppu.tilemap_two.to_vec(),
+                                    },
+                                    egui::TextureOptions::NEAREST,
+                                );
+                                let tilemap_two = egui::load::SizedTexture::new(
+                                    self.tilemap_two_texture.id(),
+                                    [256.0, 256.0],
+                                );
+
+                                ui.add(
+                                    egui::Image::new(tilemap_two)
+                                        .fit_to_exact_size(egui::vec2(256.0, 256.0)),
+                                );
+                            }
+                            MapOptions::Sprites => {
+                                render::oam_map(&mut self.cpu.bus.ppu);
+
+                                self.sprite_texture.set(
+                                    egui::ColorImage {
+                                        size: [64, 40],
+                                        source_size: egui::Vec2 { x: 64.0, y: 40.0 },
+                                        pixels: self.cpu.bus.ppu.sprites.to_vec(),
+                                    },
+                                    egui::TextureOptions::NEAREST,
+                                );
+                                let sprites = egui::load::SizedTexture::new(
+                                    self.sprite_texture.id(),
+                                    [64.0, 40.0],
+                                );
+                                ui.add(
+                                    egui::Image::new(sprites)
+                                        .fit_to_exact_size(egui::vec2(3.0 * 64.0, 3.0 * 40.0)),
+                                );
+                            }
+                        }
                     }
                     SidePanel::Apu => {
-                        ui.add(egui::Label::new("This is where audio waves will go"));
+                        ui.horizontal(|ui| {
+                            ui.selectable_value(
+                                &mut self.audio_display,
+                                AudioDisplay::SquareOne,
+                                "Square 1",
+                            );
+                            ui.selectable_value(
+                                &mut self.audio_display,
+                                AudioDisplay::SquareTwo,
+                                "Square 2",
+                            );
+                            ui.selectable_value(
+                                &mut self.audio_display,
+                                AudioDisplay::Wave,
+                                "Wave",
+                            );
+                            ui.selectable_value(
+                                &mut self.audio_display,
+                                AudioDisplay::Noise,
+                                "Noise",
+                            );
+                        });
+
+                        let points = match self.audio_display {
+                            AudioDisplay::SquareOne => {
+                                let points: PlotPoints = self.cpu.bus.apu.square1_output.iter().enumerate().map(|(index, value)| {
+                                    [index as f64, *value as f64]
+                                }).collect();
+                                points
+                            }
+                            AudioDisplay::SquareTwo => {
+                                let points: PlotPoints = self.cpu.bus.apu.square2_output.iter().enumerate().map(|(index, value)| {
+                                    [index as f64, *value as f64]
+                                }).collect();
+                                points
+                            }
+                            AudioDisplay::Wave => {
+                                let points: PlotPoints = self.cpu.bus.apu.wave_output.iter().enumerate().map(|(index, value)| {
+                                    [index as f64, *value as f64]
+                                }).collect();
+                                points
+                            }
+                            AudioDisplay::Noise => {
+                                let points: PlotPoints = self.cpu.bus.apu.noise_output.iter().enumerate().map(|(index, value)| {
+                                    [index as f64, *value as f64]
+                                }).collect();
+                                points
+                            }
+                        };
+
+                        let line = Line::new("S1", points);
+                        Plot::new("my_plot").view_aspect(2.0).show(ui, |plot_ui| plot_ui.line(line));
+
+                        ui.heading("Play only these audios:");
+
+                        ui.horizontal(|ui| {
+                            ui.selectable_value(
+                                &mut self.cpu.bus.apu.audio_select,
+                                apu::AudioSelect::All,
+                                "All",
+                            );
+                            ui.selectable_value(
+                                &mut self.cpu.bus.apu.audio_select,
+                                apu::AudioSelect::SquareOne,
+                                "Square 1",
+                            );
+                            ui.selectable_value(
+                                &mut self.cpu.bus.apu.audio_select,
+                                apu::AudioSelect::SquareTwo,
+                                "Square 2",
+                            );
+                            ui.selectable_value(
+                                &mut self.cpu.bus.apu.audio_select,
+                                apu::AudioSelect::Wave,
+                                "Wave",
+                            );
+                            ui.selectable_value(
+                                &mut self.cpu.bus.apu.audio_select,
+                                apu::AudioSelect::Noise,
+                                "Noise",
+                            );
+                        });
                     }
                 }
             });
@@ -205,7 +454,8 @@ impl eframe::App for MyApp {
                 self.cpu.bus.interrupt_flag,
             );
 
-            ui.add(egui::Label::new(cpu_state));
+            ui.heading(cpu_state);
+            ui.heading(format!("FPS: {}", self.fps));
             // ui.add(egui::Slider::new(&mut self.value, 0.0..=10.0).text("value"));
             // if ui.button("Increment").clicked() {
             //     self.value += 1.0;
@@ -220,16 +470,15 @@ impl eframe::App for MyApp {
 impl MyApp {
     // Display frame if result returned is true
     fn step_gb(&mut self) -> Option<render::Frame> {
-        if self.show_fps && self.frame_count == 0 {
+        if self.frame_count == 0 {
             self.baseline = Instant::now();
         } else if self.frame_count == 30 {
             let thirty_frame_time = self.baseline.elapsed().as_secs_f32();
             self.frame_count = 1;
             self.baseline = Instant::now();
-            if self.show_fps {
-                let fps = 30.0 / thirty_frame_time;
-                println!("FPS is {fps}");
-            }
+            let fps = 30.0 / thirty_frame_time;
+            //println!("FPS is {fps}");
+            self.fps = fps;
         }
 
         let frame = if self.trace_on {
@@ -250,15 +499,15 @@ impl MyApp {
             self.audio_device
                 .queue_audio(&self.cpu.bus.audio_buffer)
                 .unwrap();
-            while self.audio_device.size() > 5000 {}
+            while self.audio_device.size() > 4500 {
+
+            }
 
             // check user input
             //sdl2_setup::get_user_input(&mut self.event_pump, &mut self.cpu.bus.joypad);
 
             // If FPS enabled, increment counter
-            if self.show_fps {
-                self.frame_count += 1;
-            }
+            self.frame_count += 1;
 
             return Some(frame);
         }
@@ -290,4 +539,27 @@ enum SidePanel {
     Cpu,
     Ppu,
     Apu,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum ScreenOptions {
+    All,
+    SpritesOnly,
+    BackgroundOnly,
+    WindowOnly,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum MapOptions {
+    Tilemap1,
+    Tilemap2,
+    Sprites,
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum AudioDisplay {
+    SquareOne,
+    SquareTwo,
+    Wave,
+    Noise,
 }

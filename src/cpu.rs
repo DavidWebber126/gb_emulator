@@ -319,14 +319,47 @@ impl Cpu {
         callback(self);
 
         // Get opcode from prefixed or regular
-        let (cycles, bytes, opcode_name, opcode_num) = if self.prefixed_mode {
+        let (cycles, bytes) = if self.prefixed_mode {
             let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_PREFIXED_OP_CODES;
             let opcode_num = self.bus.mem_read(self.program_counter + 1);
             let opcode = opcodes.get(&opcode_num).unwrap();
 
+            // Record CPU Instrs for display in GUI
+            let mut opcode_as_bytes = Vec::new();
+            for i in 1..opcode.bytes {
+                opcode_as_bytes.push(self.bus.mem_read(self.program_counter.wrapping_add(i)));
+            }
+
+            let mut opcode_format = format!("{opcode_num:02X}");
+            // Todo: Add Assembly style format of the opcode and values
+            // let mut asm_format = format!("{}", opcode.name);
+            if let Some(first_byte) = opcode_as_bytes.first() {
+                opcode_format = format!("{opcode_format} {first_byte:02X}");
+            }
+            if let Some(second_byte) = opcode_as_bytes.get(1) {
+                opcode_format = format!("{opcode_format} {second_byte:02X}");
+            }
+
+            let instr_string = format!(
+            "{:04X}    {:<8}  {:<5}  AF: {:04X}, BC: {:04X}, DE: {:04X}, HL: {:04X}, SP: {:04X}",
+            self.program_counter,
+            opcode_format,
+            opcode.name,
+            self.get_af(),
+            self.get_bc(),
+            self.get_de(),
+            self.get_hl(),
+            self.stack_pointer
+        );
+            self.prev_instrs.push_front(instr_string);
+            if self.prev_instrs.len() > 25 {
+                let _ = self.prev_instrs.pop_back();
+            }
+            // End GUI stuff
+
             self.prefixed_mode = false;
             self.prefixed_opcodes(opcode_num, opcode);
-            (opcode.cycles, opcode.bytes, opcode.name, opcode_num)
+            (opcode.cycles, opcode.bytes)
         } else {
             let opcodes: &HashMap<u8, Opcode> = &opcodes::CPU_OP_CODES;
             let opcode_num = self.bus.mem_read(self.program_counter);
@@ -334,45 +367,46 @@ impl Cpu {
                 .get(&opcode_num)
                 .unwrap_or_else(|| panic!("Invalid opcode received: {opcode_num:02X}"));
 
-            self.non_prefixed_opcodes(opcode_num, opcode);
-            (opcode.cycles, opcode.bytes, opcode.name, opcode_num)
-        };
+            // Record CPU Instrs for display in GUI
+            let mut opcode_as_bytes = Vec::new();
+            for i in 1..opcode.bytes {
+                opcode_as_bytes.push(self.bus.mem_read(self.program_counter.wrapping_add(i)));
+            }
 
-        // Record CPU Instrs for display in GUI
-        let mut opcode_as_bytes = Vec::new();
-        for i in 1..bytes {
-            opcode_as_bytes.push(self.bus.mem_read(self.program_counter.wrapping_add(i)));
-        }
+            let mut opcode_format = format!("{opcode_num:02X}");
+            // Todo: Add Assembly style format of the opcode and values
+            // let mut asm_format = format!("{}", opcode.name);
+            if let Some(first_byte) = opcode_as_bytes.first() {
+                opcode_format = format!("{opcode_format} {first_byte:02X}");
+            }
+            if let Some(second_byte) = opcode_as_bytes.get(1) {
+                opcode_format = format!("{opcode_format} {second_byte:02X}");
+            }
 
-        let mut opcode_format = format!("{opcode_num:02X}");
-        // Todo: Add Assembly style format of the opcode and values
-        // let mut asm_format = format!("{}", opcode.name);
-        if let Some(first_byte) = opcode_as_bytes.first() {
-            opcode_format = format!("{opcode_format} {first_byte:02X}");
-        }
-        if let Some(second_byte) = opcode_as_bytes.get(1) {
-            opcode_format = format!("{opcode_format} {second_byte:02X}");
-        }
-
-        let instr_string = format!(
+            let instr_string = format!(
             "{:04X}    {:<8}  {:<5}  AF: {:04X}, BC: {:04X}, DE: {:04X}, HL: {:04X}, SP: {:04X}",
             self.program_counter,
             opcode_format,
-            opcode_name,
+            opcode.name,
             self.get_af(),
             self.get_bc(),
             self.get_de(),
             self.get_hl(),
             self.stack_pointer
         );
-        self.prev_instrs.push_front(instr_string);
-        if self.prev_instrs.len() > 25 {
-            let _ = self.prev_instrs.pop_back();
-        }
-        // End GUI stuff
+            self.prev_instrs.push_front(instr_string);
+            if self.prev_instrs.len() > 25 {
+                let _ = self.prev_instrs.pop_back();
+            }
+            // End GUI stuff
+
+            self.non_prefixed_opcodes(opcode_num, opcode);
+            (opcode.cycles, opcode.bytes)
+        };
 
         self.frame_ready = self.bus.tick(cycles + self.cycles);
         self.cycles = 0;
+
         self.program_counter = self.program_counter.wrapping_add(bytes);
 
         // check if frame is ready to display

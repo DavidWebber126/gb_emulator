@@ -1,3 +1,5 @@
+const AUDIO_LENGTH: usize = 800;
+
 pub struct Apu {
     pub square1: SquareChannel,
     pub square2: SquareChannel,
@@ -9,6 +11,14 @@ pub struct Apu {
     audio_on: bool,
     sound_panning: u8,
     volume: u8,
+
+    // GUI
+    pub square1_output: [f32; AUDIO_LENGTH],
+    pub square2_output: [f32; AUDIO_LENGTH],
+    pub wave_output: [f32; AUDIO_LENGTH],
+    pub noise_output: [f32; AUDIO_LENGTH],
+    output_index: usize,
+    pub audio_select: AudioSelect,
 }
 
 impl Apu {
@@ -24,6 +34,14 @@ impl Apu {
             audio_on: false,
             sound_panning: 0,
             volume: 0,
+
+            // GUI
+            square1_output: [0.0; AUDIO_LENGTH],
+            square2_output: [0.0; AUDIO_LENGTH],
+            wave_output: [0.0; AUDIO_LENGTH],
+            noise_output: [0.0; AUDIO_LENGTH],
+            output_index: 0,
+            audio_select: AudioSelect::All,
         }
     }
 
@@ -61,7 +79,20 @@ impl Apu {
             noise = self.noise.output();
         }
 
-        (s1 + s2 + noise + wave) / 4.0
+        self.square1_output[self.output_index] = s1;
+        self.square2_output[self.output_index] = s2;
+        self.wave_output[self.output_index] = wave;
+        self.noise_output[self.output_index] = noise;
+        self.output_index += 1;
+        self.output_index %= AUDIO_LENGTH;
+
+        match self.audio_select {
+            AudioSelect::All => (s1 + s2 + noise + wave) / 4.0,
+            AudioSelect::SquareOne => s1 / 4.0,
+            AudioSelect::SquareTwo => s2 / 4.0,
+            AudioSelect::Noise => noise / 4.0,
+            AudioSelect::Wave => wave / 4.0,
+        }
     }
 
     // 0xFF24 NR50
@@ -879,4 +910,13 @@ impl NoiseChannel {
     pub fn control_read(&self) -> u8 {
         ((self.length_counter.enabled as u8) << 6) | 0xbf
     }
+}
+
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum AudioSelect {
+    All,
+    SquareOne,
+    SquareTwo,
+    Noise,
+    Wave,
 }

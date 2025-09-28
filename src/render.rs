@@ -1,4 +1,4 @@
-use crate::ppu::{Control, Ppu, ScreenOptions};
+use crate::ppu::{Control, Ppu};
 use eframe::egui::{self, Color32};
 
 // white, light gray, dark gray, black
@@ -149,7 +149,7 @@ fn get_pixel_data(ppu: &Ppu, x: u8, y: u8, tile_id: u8, is_obj: bool) -> u8 {
     }
 }
 
-fn render_pixel(ppu: &Ppu, x: usize, y: usize, frame: &mut Frame) {
+fn render_pixel(ppu: &mut Ppu, x: usize, y: usize, frame: &mut Frame) {
     // If pixel is in window area, fetch window pixel. Otherwise fetch background pixel
     let (tile_id, x_pos, y_pos, is_window) = if ppu.control.contains(Control::window_enable)
         && x + 7 >= ppu.wx as usize
@@ -171,34 +171,31 @@ fn render_pixel(ppu: &Ppu, x: usize, y: usize, frame: &mut Frame) {
         Some(obj_color)
     };
 
+    // Record for GUI
+    if is_window {
+        let color = GB_PALETTE[bg_pixel as usize];
+        ppu.win_screen[x + 160 * y] = Color32::from_rgb(color.0, color.1, color.2);
+        ppu.bg_screen[x + 160 * y] = Color32::BLACK;
+    } else {
+        let color = GB_PALETTE[bg_pixel as usize];
+        ppu.win_screen[x + 160 * y] = Color32::BLACK;
+        ppu.bg_screen[x + 160 * y] = Color32::from_rgb(color.0, color.1, color.2);
+    }
+    if let Some(pixel) = obj_pixel {
+        let color = GB_PALETTE[pixel as usize];
+        ppu.spr_screen[x + 160 * y] = Color32::from_rgb(color.0, color.1, color.2);
+    } else {
+        ppu.spr_screen[x + 160 * y] = Color32::BLACK;
+    }
+
     // Decide which has priority and draw to Frame
-    let pixel = match ppu.screen_options {
-        ScreenOptions::All => match (ppu.control.contains(Control::obj_enable), obj_pixel) {
-            (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
-            _ => {
-                if ppu.control.contains(Control::bg_win_enable) {
-                    GB_PALETTE[bg_pixel as usize]
-                } else {
-                    GB_PALETTE[0]
-                }
-            }
-        },
-        ScreenOptions::BackgroundOnly => {
-            if !is_window {
+    let pixel = match (ppu.control.contains(Control::obj_enable), obj_pixel) {
+        (true, Some(obj_pixel)) => GB_PALETTE[obj_pixel as usize],
+        _ => {
+            if ppu.control.contains(Control::bg_win_enable) {
                 GB_PALETTE[bg_pixel as usize]
             } else {
-                (0, 0, 0)
-            }
-        }
-        ScreenOptions::SpritesOnly => match obj_pixel {
-            Some(pixel) => GB_PALETTE[pixel as usize],
-            None => (0, 0, 0),
-        },
-        ScreenOptions::WindowOnly => {
-            if is_window {
-                GB_PALETTE[bg_pixel as usize]
-            } else {
-                (0, 0, 0)
+                GB_PALETTE[0]
             }
         }
     };
@@ -206,9 +203,105 @@ fn render_pixel(ppu: &Ppu, x: usize, y: usize, frame: &mut Frame) {
     frame.set_pixel(x, y, pixel);
 }
 
-pub fn render_scanline(ppu: &Ppu, frame: &mut Frame) {
+pub fn render_scanline(ppu: &mut Ppu, frame: &mut Frame) {
     let current_scanline = ppu.scanline as usize;
     for i in 0..Frame::WIDTH {
         render_pixel(ppu, i, current_scanline, frame);
+    }
+}
+
+// For GUI
+// Tilemap 1: 0x9800 - 0x9BFF
+pub fn tilemap_one(ppu: &mut Ppu) {
+    for i in 0..1024 {
+        let tile_x = i as usize % 32;
+        let tile_y = i as usize / 32;
+        let tile_id = ppu.read_vram(0x9800 + i);
+        let tile_addr = if tile_id > 127 {
+            0x8800 + 16 * (tile_id as u16 - 128)
+        } else {
+            0x8000
+                + 16 * (tile_id as u16)
+                + 0x1000 * (!ppu.control.contains(Control::bg_win_mode) as u16)
+        };
+        for y in 0..8 {
+            let lo_byte = ppu.read_vram(tile_addr + 2 * y);
+            let hi_byte = ppu.read_vram(tile_addr + 2 * y + 1);
+            for x in 0..8 {
+                let pixel = match (lo_byte & (0x80 >> x) > 0, hi_byte & (0x80 >> x) > 0) {
+                    (false, false) => 0,
+                    (true, false) => 1,
+                    (false, true) => 2,
+                    (true, true) => 3,
+                };
+                let bg_pixel = (ppu.bg_palette & (0b11 << (2 * pixel))) >> (2 * pixel);
+                let color = GB_PALETTE[bg_pixel as usize];
+                ppu.tilemap_one[8 * tile_x + x + 32 * 8 * (8 * tile_y + y as usize)] =
+                    Color32::from_rgb(color.0, color.1, color.2);
+            }
+        }
+    }
+}
+
+// For GUI
+// Tilemap 2: 0x9C00 - 0x9FFF
+pub fn tilemap_two(ppu: &mut Ppu) {
+    for i in 0..1024 {
+        let tile_x = i as usize % 32;
+        let tile_y = i as usize / 32;
+        let tile_id = ppu.read_vram(0x9C00 + i);
+        let tile_addr = if tile_id > 127 {
+            0x8800 + 16 * (tile_id as u16 - 128)
+        } else {
+            0x8000
+                + 16 * (tile_id as u16)
+                + 0x1000 * (!ppu.control.contains(Control::bg_win_mode) as u16)
+        };
+        for y in 0..8 {
+            let lo_byte = ppu.read_vram(tile_addr + 2 * y);
+            let hi_byte = ppu.read_vram(tile_addr + 2 * y + 1);
+            for x in 0..8 {
+                let pixel = match (lo_byte & (0x80 >> x) > 0, hi_byte & (0x80 >> x) > 0) {
+                    (false, false) => 0,
+                    (true, false) => 1,
+                    (false, true) => 2,
+                    (true, true) => 3,
+                };
+                let bg_pixel = (ppu.bg_palette & (0b11 << (2 * pixel))) >> (2 * pixel);
+                let color = GB_PALETTE[bg_pixel as usize];
+                ppu.tilemap_two[8 * tile_x + x + 32 * 8 * (8 * tile_y + y as usize)] =
+                    Color32::from_rgb(color.0, color.1, color.2);
+            }
+        }
+    }
+}
+
+pub fn oam_map(ppu: &mut Ppu) {
+    for i in 0..40 {
+        let tile_x = i % 8;
+        let tile_y = i / 8;
+        let tile_id = ppu.oam[4 * i + 2];
+        let palette_select = ppu.oam[4 * i + 3] & 0x10 > 0;
+        let tile_addr = 0x8000 + 16 * tile_id as u16;
+        for y in 0..8 {
+            let lo_byte = ppu.read_vram(tile_addr + 2 * y);
+            let hi_byte = ppu.read_vram(tile_addr + 2 * y + 1);
+            for x in 0..8 {
+                let pixel = match (lo_byte & (0x80 >> x) > 0, hi_byte & (0x80 >> x) > 0) {
+                    (false, false) => 0,
+                    (true, false) => 1,
+                    (false, true) => 2,
+                    (true, true) => 3,
+                };
+                let spr_pixel = if palette_select {
+                    (ppu.obp1 & (0b11 << (2 * pixel))) >> (2 * pixel)
+                } else {
+                    (ppu.obp0 & (0b11 << (2 * pixel))) >> (2 * pixel)
+                };
+                let color = GB_PALETTE[spr_pixel as usize];
+                ppu.sprites[8 * tile_x + x + 8 * 8 * (8 * tile_y + y as usize)] =
+                    Color32::from_rgb(color.0, color.1, color.2);
+            }
+        }
     }
 }

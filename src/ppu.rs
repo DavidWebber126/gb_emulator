@@ -1,3 +1,4 @@
+use crate::egui::Color32;
 use bitflags::bitflags;
 
 // 0xFF40
@@ -81,7 +82,12 @@ pub struct Ppu {
     pub scanline_oams: Vec<usize>, // hold the up to 10 OAMs on current scanline. Referenced by first byte in four byte sequence
 
     // GUI
-    pub screen_options: ScreenOptions,
+    pub bg_screen: [Color32; 144 * 160],
+    pub win_screen: [Color32; 144 * 160],
+    pub spr_screen: [Color32; 144 * 160],
+    pub tilemap_one: [Color32; 256 * 256],
+    pub tilemap_two: [Color32; 256 * 256],
+    pub sprites: [Color32; 64 * 40],
 }
 
 impl Ppu {
@@ -117,7 +123,12 @@ impl Ppu {
             cycle: 0,
             scanline: 0,
 
-            screen_options: ScreenOptions::All,
+            bg_screen: [Color32::from_rgb(0, 0, 0); 144 * 160],
+            win_screen: [Color32::from_rgb(0, 0, 0); 144 * 160],
+            spr_screen: [Color32::from_rgb(0, 0, 0); 144 * 160],
+            tilemap_one: [Color32::BLACK; 256 * 256],
+            tilemap_two: [Color32::BLACK; 256 * 256],
+            sprites: [Color32::BLACK; 64 * 40],
         }
     }
 
@@ -310,12 +321,4 @@ impl Ppu {
 
         result
     }
-}
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum ScreenOptions {
-    All,
-    SpritesOnly,
-    BackgroundOnly,
-    WindowOnly,
 }
